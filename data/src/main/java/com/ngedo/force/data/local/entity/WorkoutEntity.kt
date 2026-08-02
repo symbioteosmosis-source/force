@@ -2,8 +2,14 @@ package com.ngedo.force.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Index
 
-@Entity(tableName = "workouts")
+@Entity(
+    tableName = "workouts",
+    indices = [
+        Index(value = ["name"])
+    ]
+)
 data class WorkoutEntity(
 
     @PrimaryKey(autoGenerate = true)
