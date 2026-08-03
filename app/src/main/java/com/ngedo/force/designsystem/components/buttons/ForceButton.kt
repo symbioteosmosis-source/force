@@ -1,4 +1,4 @@
-package com.ngedo.force.designsystem.components
+package com.ngedo.force.designsystem.components.buttons
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
