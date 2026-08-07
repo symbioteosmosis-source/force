@@ -3,16 +3,11 @@ plugins {
 }
 
 android {
-    namespace = "com.ngedo.core_database"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    namespace = "com.ngedo.force.core.database"
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 29
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
