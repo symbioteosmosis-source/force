@@ -73,41 +73,54 @@ fun WorkoutScreen(
 ) {
     val uiState by workoutViewModel.uiState.collectAsState()
 
-    if (uiState.isWorkoutStarted) {
-        ActiveWorkoutContent(
-            uiState = uiState,
-            onCompleteSet = {
-                val exercise =
-                    todaysWorkout[uiState.currentExerciseIndex]
+    when {
+        uiState.isWorkoutComplete -> {
+            WorkoutCompleteContent(
+                uiState = uiState,
+                onFinishWorkout = {
+                    workoutViewModel.finishWorkout()
+                }
+            )
+        }
 
-                workoutViewModel.completeSet(
-                    totalSets = exercise.sets,
-                    totalExercises = todaysWorkout.size,
-                    restSeconds = exercise.restSeconds
-                )
-            },
-            onSkipRest = {
-                val exercise =
-                    todaysWorkout[uiState.currentExerciseIndex]
+        uiState.isWorkoutStarted -> {
+            ActiveWorkoutContent(
+                uiState = uiState,
+                onCompleteSet = {
+                    val exercise =
+                        todaysWorkout[uiState.currentExerciseIndex]
 
-                workoutViewModel.skipRest(
-                    totalSets = exercise.sets,
-                    totalExercises = todaysWorkout.size
-                )
-            },
-            onNextExercise = {
-                workoutViewModel.nextExercise(
-                    todaysWorkout.size
-                )
-            }
-        )
-    } else {
-        WorkoutOverview(
-            onStartWorkout = workoutViewModel::startWorkout
-        )
-    }
-}
+                    workoutViewModel.completeSet(
+                        totalSets = exercise.sets,
+                        totalExercises = todaysWorkout.size,
+                        restSeconds = exercise.restSeconds
+                    )
+                },
+                onSkipRest = {
+                    workoutViewModel.skipRest(
+                        totalSets = todaysWorkout[
+                            uiState.currentExerciseIndex
+                        ].sets,
+                        totalExercises = todaysWorkout.size
+                    )
+                },
+                onNextExercise = {
+                    workoutViewModel.nextExercise(
+                        todaysWorkout.size
+                    )
+                }
+            )
+        }
 
+        else -> {
+            WorkoutOverview(
+                onStartWorkout =
+                    workoutViewModel::startWorkout
+            )
+        }
+    }   // closes when
+
+}       // closes WorkoutScreen
 @Composable
 private fun WorkoutOverview(
     onStartWorkout: () -> Unit
@@ -497,3 +510,213 @@ private fun formatRestTime(
         remainingSeconds
     )
 }
+    @Composable
+    private fun WorkoutCompleteContent(
+        uiState: ActiveWorkoutUiState,
+        onFinishWorkout: () -> Unit
+    ) {
+        val totalSets =
+            todaysWorkout.sumOf { it.sets }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    ForceColors.Background
+                )
+                .padding(
+                    ForceSpacing.Large
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    ForceSpacing.Large
+                )
+        ) {
+
+            item {
+                Column(
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally,
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    Text(
+                        text = "Workout Complete",
+                        color = ForceColors.TextPrimary,
+                        style =
+                            MaterialTheme.typography
+                                .headlineLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "Great work! 🎉",
+                        color = ForceColors.Primary,
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge
+                    )
+
+                    Text(
+                        text = "Chest & Triceps",
+                        color = ForceColors.TextSecondary
+                    )
+                }
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            ForceColors.Surface,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .padding(
+                            ForceSpacing.Medium
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(12.dp)
+                ) {
+
+                    Text(
+                        text = "Workout Summary",
+                        color =
+                            ForceColors.TextPrimary,
+                        style =
+                            MaterialTheme.typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Row(
+                        modifier =
+                            Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.SpaceBetween
+                    ) {
+                        SummaryItem(
+                            label = "Exercises",
+                            value =
+                                "${todaysWorkout.size}"
+                        )
+
+                        SummaryItem(
+                            label = "Sets",
+                            value =
+                                "${uiState.completedSets}"
+                        )
+
+                        SummaryItem(
+                            label = "Planned",
+                            value =
+                                "$totalSets sets"
+                        )
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = "Completed Exercises",
+                    color = ForceColors.TextPrimary,
+                    style =
+                        MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(todaysWorkout) { exercise ->
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            ForceColors.Surface,
+                            RoundedCornerShape(16.dp)
+                        )
+                        .padding(
+                            ForceSpacing.Medium
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+
+                    Text(
+                        text = "✓ ${exercise.name}",
+                        color = ForceColors.TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text =
+                            "${exercise.sets} sets • " +
+                                    exercise.reps,
+                        color =
+                            ForceColors.TextSecondary
+                    )
+                }
+            }
+
+            item {
+                Spacer(
+                    modifier =
+                        Modifier.height(8.dp)
+                )
+
+                Button(
+                    onClick = onFinishWorkout,
+                    modifier =
+                        Modifier.fillMaxWidth(),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor =
+                                ForceColors.Primary
+                        ),
+                    shape =
+                        RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "Finish Workout",
+                        color =
+                            ForceColors.Background,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun SummaryItem(
+        label: String,
+        value: String
+    ) {
+        Column(
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+
+            Text(
+                text = value,
+                color = ForceColors.Primary,
+                style =
+                    MaterialTheme.typography
+                        .titleLarge,
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Text(
+                text = label,
+                color =
+                    ForceColors.TextSecondary
+            )
+        }
+    }

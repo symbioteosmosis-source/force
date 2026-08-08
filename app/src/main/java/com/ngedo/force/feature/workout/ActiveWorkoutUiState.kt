@@ -6,7 +6,6 @@ data class ActiveWorkoutUiState(
     val currentExerciseIndex: Int = 0,
     val currentSet: Int = 1,
     val completedSets: Int = 0,
-    val completedExercises: Int = 0,
     val isResting: Boolean = false,
     val restSecondsRemaining: Int = 0
 )

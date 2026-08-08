@@ -24,14 +24,7 @@ class ActiveWorkoutViewModel : ViewModel() {
         restTimerJob?.cancel()
 
         _uiState.value = ActiveWorkoutUiState(
-            isWorkoutStarted = true,
-            isWorkoutComplete = false,
-            currentExerciseIndex = 0,
-            currentSet = 1,
-            completedSets = 0,
-            completedExercises = 0,
-            isResting = false,
-            restSecondsRemaining = 0
+            isWorkoutStarted = true
         )
     }
 
@@ -46,40 +39,41 @@ class ActiveWorkoutViewModel : ViewModel() {
             return
         }
 
-        if (currentState.currentSet < totalSets) {
-
-            startRestTimer(
-                restSeconds = restSeconds,
-                totalSets = totalSets
-            )
-
-            return
-        }
-
-        /*
-         * Final set of the current exercise.
-         */
-        val newCompletedSets =
+        val updatedCompletedSets =
             currentState.completedSets + 1
 
-        if (
-            currentState.currentExerciseIndex <
-            totalExercises - 1
-        ) {
+        /*
+         * If this was the final set of the current exercise,
+         * move to the next exercise.
+         */
+        if (currentState.currentSet >= totalSets) {
 
+            if (
+                currentState.currentExerciseIndex >=
+                totalExercises - 1
+            ) {
+                /*
+                 * Entire workout is complete.
+                 */
+                _uiState.value = currentState.copy(
+                    completedSets = updatedCompletedSets,
+                    isWorkoutComplete = true,
+                    isResting = false,
+                    restSecondsRemaining = 0
+                )
+
+                return
+            }
+
+            /*
+             * Move to the next exercise.
+             */
             _uiState.value = currentState.copy(
+                completedSets = updatedCompletedSets,
                 currentExerciseIndex =
                     currentState.currentExerciseIndex + 1,
-
                 currentSet = 1,
-
-                completedSets = newCompletedSets,
-
-                completedExercises =
-                    currentState.completedExercises + 1,
-
                 isResting = false,
-
                 restSecondsRemaining = 0
             )
 
@@ -87,11 +81,13 @@ class ActiveWorkoutViewModel : ViewModel() {
         }
 
         /*
-         * Final set of the final exercise.
+         * There are more sets remaining for this exercise.
+         * Start the rest timer before moving to the next set.
          */
-        completeWorkout(
-            completedSets = newCompletedSets,
-            totalExercises = totalExercises
+        startRestTimer(
+            seconds = restSeconds,
+            nextSet = currentState.currentSet + 1,
+            completedSets = updatedCompletedSets
         )
     }
 
@@ -99,25 +95,28 @@ class ActiveWorkoutViewModel : ViewModel() {
         totalSets: Int,
         totalExercises: Int
     ) {
-        if (!_uiState.value.isResting) {
+        val currentState = _uiState.value
+
+        if (!currentState.isResting) {
             return
         }
 
         restTimerJob?.cancel()
-        restTimerJob = null
 
-        val currentState = _uiState.value
+        _uiState.value = currentState.copy(
+            isResting = false,
+            restSecondsRemaining = 0
+        )
 
-        val newCompletedSets =
-            currentState.completedSets + 1
-
+        /*
+         * Skip Rest means the set progression continues.
+         * The completed set has already been counted.
+         */
         if (currentState.currentSet < totalSets) {
 
-            _uiState.value = currentState.copy(
-                isResting = false,
-                restSecondsRemaining = 0,
-                currentSet = currentState.currentSet + 1,
-                completedSets = newCompletedSets
+            _uiState.value = _uiState.value.copy(
+                currentSet =
+                    currentState.currentSet + 1
             )
 
         } else if (
@@ -125,71 +124,60 @@ class ActiveWorkoutViewModel : ViewModel() {
             totalExercises - 1
         ) {
 
-            _uiState.value = currentState.copy(
+            _uiState.value = _uiState.value.copy(
                 currentExerciseIndex =
                     currentState.currentExerciseIndex + 1,
-                currentSet = 1,
-                completedSets = newCompletedSets,
-                completedExercises =
-                    currentState.completedExercises + 1,
-                isResting = false,
-                restSecondsRemaining = 0
-            )
-
-        } else {
-
-            completeWorkout(
-                completedSets = newCompletedSets,
-                totalExercises = totalExercises
+                currentSet = 1
             )
         }
     }
 
-    fun nextExercise(
-        totalExercises: Int
-    ) {
-        restTimerJob?.cancel()
-        restTimerJob = null
-
+    fun nextExercise(totalExercises: Int) {
         val currentState = _uiState.value
+
+        if (currentState.isResting) {
+            return
+        }
 
         if (
             currentState.currentExerciseIndex <
             totalExercises - 1
         ) {
-
             _uiState.value = currentState.copy(
                 currentExerciseIndex =
                     currentState.currentExerciseIndex + 1,
-
                 currentSet = 1,
-
                 isResting = false,
-
                 restSecondsRemaining = 0
             )
         }
     }
 
+    fun finishWorkout() {
+        restTimerJob?.cancel()
+
+        _uiState.value = ActiveWorkoutUiState()
+    }
+
     private fun startRestTimer(
-        restSeconds: Int,
-        totalSets: Int
+        seconds: Int,
+        nextSet: Int,
+        completedSets: Int
     ) {
         restTimerJob?.cancel()
 
         restTimerJob = viewModelScope.launch {
 
             _uiState.value = _uiState.value.copy(
+                completedSets = completedSets,
                 isResting = true,
-                restSecondsRemaining = restSeconds
+                restSecondsRemaining = seconds
             )
 
-            var remaining = restSeconds
+            var remaining = seconds
 
             while (remaining > 0) {
-
                 delay(1_000)
-
                 remaining--
 
                 _uiState.value =
@@ -198,41 +186,13 @@ class ActiveWorkoutViewModel : ViewModel() {
                     )
             }
 
-            if (
-                _uiState.value.isResting &&
-                _uiState.value.currentSet < totalSets
-            ) {
-
-                _uiState.value =
-                    _uiState.value.copy(
-                        isResting = false,
-                        restSecondsRemaining = 0,
-                        currentSet =
-                            _uiState.value.currentSet + 1
-                    )
-            }
+            _uiState.value =
+                _uiState.value.copy(
+                    currentSet = nextSet,
+                    isResting = false,
+                    restSecondsRemaining = 0
+                )
         }
-    }
-
-    private fun completeWorkout(
-        completedSets: Int,
-        totalExercises: Int
-    ) {
-        restTimerJob?.cancel()
-        restTimerJob = null
-
-        _uiState.value = _uiState.value.copy(
-            isWorkoutStarted = false,
-            isWorkoutComplete = true,
-            completedSets = completedSets,
-            completedExercises = totalExercises,
-            isResting = false,
-            restSecondsRemaining = 0
-        )
-    }
-
-    fun dismissCompletion() {
-        _uiState.value = ActiveWorkoutUiState()
     }
 
     override fun onCleared() {
