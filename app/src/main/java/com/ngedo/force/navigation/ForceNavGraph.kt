@@ -21,7 +21,11 @@ fun ForceNavGraph() {
     ) {
 
         composable(ForceDestination.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavigate = { destination ->
+                    navController.navigate(destination.route)
+                }
+            )
         }
 
         composable(ForceDestination.Workout.route) {

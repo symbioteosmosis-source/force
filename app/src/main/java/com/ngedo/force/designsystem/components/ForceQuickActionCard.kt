@@ -1,6 +1,7 @@
 package com.ngedo.force.designsystem.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ fun ForceQuickActionCard(
     subtitle: String,
     icon: ImageVector,
     iconTint: Color,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -34,6 +36,7 @@ fun ForceQuickActionCard(
                 color = ForceColors.Surface,
                 shape = RoundedCornerShape(20.dp)
             )
+            .clickable(onClick = onClick)
             .padding(ForceSpacing.Medium),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(

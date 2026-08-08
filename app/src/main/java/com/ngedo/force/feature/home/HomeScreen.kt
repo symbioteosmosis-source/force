@@ -23,8 +23,12 @@ import com.ngedo.force.designsystem.components.ForceStatCard
 import com.ngedo.force.designsystem.components.ForceTopBar
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.ngedo.force.navigation.ForceDestination
+
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigate: (ForceDestination) -> Unit
+) {
 
     Column(
         modifier = Modifier
@@ -80,6 +84,9 @@ fun HomeScreen() {
                 subtitle = "Start training",
                 icon = Icons.Default.FitnessCenter,
                 iconTint = ForceColors.Primary,
+                onClick = {
+                    onNavigate(ForceDestination.Workout)
+                },
                 modifier = Modifier.weight(1f)
             )
 
@@ -88,6 +95,7 @@ fun HomeScreen() {
                 subtitle = "Get guidance",
                 icon = Icons.Default.SmartToy,
                 iconTint = ForceColors.Primary,
+                onClick = {},
                 modifier = Modifier.weight(1f)
             )
         }
@@ -103,6 +111,7 @@ fun HomeScreen() {
                 subtitle = "Track meals",
                 icon = Icons.Default.Restaurant,
                 iconTint = ForceColors.Primary,
+                onClick = {},
                 modifier = Modifier.weight(1f)
             )
 
@@ -111,6 +120,7 @@ fun HomeScreen() {
                 subtitle = "View results",
                 icon = Icons.Default.TrendingUp,
                 iconTint = ForceColors.Primary,
+                onClick = {},
                 modifier = Modifier.weight(1f)
             )
         }
