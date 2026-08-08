@@ -22,12 +22,24 @@ class ActiveWorkoutViewModel : ViewModel() {
         )
     }
 
-    fun completeSet(totalSets: Int) {
+    fun completeSet(
+        totalSets: Int,
+        totalExercises: Int
+    ) {
         val currentState = _uiState.value
 
         if (currentState.currentSet < totalSets) {
             _uiState.value = currentState.copy(
                 currentSet = currentState.currentSet + 1
+            )
+        } else if (
+            currentState.currentExerciseIndex <
+            totalExercises - 1
+        ) {
+            _uiState.value = currentState.copy(
+                currentExerciseIndex =
+                    currentState.currentExerciseIndex + 1,
+                currentSet = 1
             )
         }
     }

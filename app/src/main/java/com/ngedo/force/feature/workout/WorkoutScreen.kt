@@ -73,7 +73,10 @@ fun WorkoutScreen(
                 val totalSets =
                     todaysWorkout[uiState.currentExerciseIndex].sets
 
-                workoutViewModel.completeSet(totalSets)
+                workoutViewModel.completeSet(
+                    totalSets = totalSets,
+                    totalExercises = todaysWorkout.size
+                )
             },
             onNextExercise = {
                 workoutViewModel.nextExercise(todaysWorkout.size)
