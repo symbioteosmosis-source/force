@@ -69,8 +69,15 @@ fun WorkoutScreen(
     if (uiState.isWorkoutStarted) {
         ActiveWorkoutContent(
             uiState = uiState,
-            onCompleteSet = workoutViewModel::completeSet,
-            onNextExercise = workoutViewModel::nextExercise
+            onCompleteSet = {
+                val totalSets =
+                    todaysWorkout[uiState.currentExerciseIndex].sets
+
+                workoutViewModel.completeSet(totalSets)
+            },
+            onNextExercise = {
+                workoutViewModel.nextExercise(todaysWorkout.size)
+            }
         )
     } else {
         WorkoutOverview(

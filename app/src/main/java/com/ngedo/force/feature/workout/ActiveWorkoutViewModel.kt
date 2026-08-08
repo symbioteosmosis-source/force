@@ -22,17 +22,25 @@ class ActiveWorkoutViewModel : ViewModel() {
         )
     }
 
-    fun completeSet() {
-        _uiState.value = _uiState.value.copy(
-            currentSet = _uiState.value.currentSet + 1
-        )
+    fun completeSet(totalSets: Int) {
+        val currentState = _uiState.value
+
+        if (currentState.currentSet < totalSets) {
+            _uiState.value = currentState.copy(
+                currentSet = currentState.currentSet + 1
+            )
+        }
     }
 
-    fun nextExercise() {
-        _uiState.value = _uiState.value.copy(
-            currentExerciseIndex =
-                _uiState.value.currentExerciseIndex + 1,
-            currentSet = 1
-        )
+    fun nextExercise(totalExercises: Int) {
+        val currentState = _uiState.value
+
+        if (currentState.currentExerciseIndex < totalExercises - 1) {
+            _uiState.value = currentState.copy(
+                currentExerciseIndex =
+                    currentState.currentExerciseIndex + 1,
+                currentSet = 1
+            )
+        }
     }
 }
