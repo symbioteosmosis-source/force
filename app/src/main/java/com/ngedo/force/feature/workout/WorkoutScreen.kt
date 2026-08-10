@@ -16,6 +16,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -86,6 +88,15 @@ fun WorkoutScreen(
         uiState.isWorkoutStarted -> {
             ActiveWorkoutContent(
                 uiState = uiState,
+
+                onWeightChange = {
+                    workoutViewModel.updateCurrentWeight(it)
+                },
+
+                onRepsChange = {
+                    workoutViewModel.updateCurrentReps(it)
+                },
+
                 onCompleteSet = {
                     val exercise =
                         todaysWorkout[uiState.currentExerciseIndex]
@@ -115,8 +126,13 @@ fun WorkoutScreen(
 
         else -> {
             WorkoutOverview(
-                onStartWorkout =
-                    workoutViewModel::startWorkout
+                onStartWorkout = {
+                    workoutViewModel.startWorkout(
+                        exerciseNames = todaysWorkout.map {
+                            it.name
+                        }
+                    )
+                }
             )
         }
     }
@@ -184,6 +200,8 @@ private fun WorkoutOverview(
 @Composable
 private fun ActiveWorkoutContent(
     uiState: ActiveWorkoutUiState,
+    onWeightChange: (String) -> Unit,
+    onRepsChange: (String) -> Unit,
     onCompleteSet: () -> Unit,
     onSkipRest: () -> Unit,
     onNextExercise: () -> Unit
@@ -320,6 +338,75 @@ private fun ActiveWorkoutContent(
             color = ForceColors.TextSecondary
         )
 
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
+
+        Text(
+            text = "Weight (kg)",
+            color = ForceColors.TextSecondary,
+            style = MaterialTheme.typography.labelLarge
+        )
+
+        Spacer(
+            modifier = Modifier.height(6.dp)
+        )
+
+        OutlinedTextField(
+            value = uiState.currentWeight,
+            onValueChange = onWeightChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = {
+                Text(
+                    text = "Enter weight",
+                    color = ForceColors.TextSecondary
+                )
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ForceColors.Primary,
+                unfocusedBorderColor = ForceColors.TextSecondary,
+                focusedTextColor = ForceColors.TextPrimary,
+                unfocusedTextColor = ForceColors.TextPrimary,
+                cursorColor = ForceColors.Primary
+            ),
+            shape = RoundedCornerShape(14.dp)
+        )
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+        Text(
+            text = "Reps",
+            color = ForceColors.TextSecondary,
+            style = MaterialTheme.typography.labelLarge
+        )
+
+        Spacer(
+            modifier = Modifier.height(6.dp)
+        )
+
+        OutlinedTextField(
+            value = uiState.currentReps,
+            onValueChange = onRepsChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = {
+                Text(
+                    text = "Enter reps",
+                    color = ForceColors.TextSecondary
+                )
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ForceColors.Primary,
+                unfocusedBorderColor = ForceColors.TextSecondary,
+                focusedTextColor = ForceColors.TextPrimary,
+                unfocusedTextColor = ForceColors.TextPrimary,
+                cursorColor = ForceColors.Primary
+            ),
+            shape = RoundedCornerShape(14.dp)
+        )
         /*
          * -------------------------------------------------
          * FLEXIBLE SPACE

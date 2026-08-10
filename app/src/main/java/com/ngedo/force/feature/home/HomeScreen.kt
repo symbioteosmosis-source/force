@@ -95,7 +95,9 @@ fun HomeScreen(
                 subtitle = "Get guidance",
                 icon = Icons.Default.SmartToy,
                 iconTint = ForceColors.Primary,
-                onClick = {},
+                onClick = {
+                    onNavigate(ForceDestination.AiCoach)
+                },
                 modifier = Modifier.weight(1f)
             )
         }

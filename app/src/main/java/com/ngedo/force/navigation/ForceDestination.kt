@@ -11,4 +11,6 @@ sealed class ForceDestination(val route: String) {
     object Nutrition : ForceDestination("nutrition")
 
     object Profile : ForceDestination("profile")
+
+    object AiCoach : ForceDestination("ai_coach")
 }

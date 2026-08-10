@@ -2,6 +2,9 @@ package com.ngedo.force.feature.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ngedo.force.data.local.repository.WorkoutSessionRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,7 +12,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ActiveWorkoutViewModel : ViewModel() {
+@HiltViewModel
+class ActiveWorkoutViewModel @Inject constructor(
+    private val workoutSessionRepository: WorkoutSessionRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         ActiveWorkoutUiState()
@@ -19,13 +25,53 @@ class ActiveWorkoutViewModel : ViewModel() {
         _uiState.asStateFlow()
 
     private var restTimerJob: Job? = null
+    fun updateCurrentWeight(weight: String) {
+        _uiState.value = _uiState.value.copy(
+            currentWeight = weight
+        )
+    }
 
-    fun startWorkout() {
+    fun updateCurrentReps(reps: String) {
+        _uiState.value = _uiState.value.copy(
+            currentReps = reps
+        )
+    }
+
+    fun startWorkout(
+        exerciseNames: List<String>
+    ) {
         restTimerJob?.cancel()
 
-        _uiState.value = ActiveWorkoutUiState(
-            isWorkoutStarted = true
-        )
+        viewModelScope.launch {
+
+            val startedAt =
+                System.currentTimeMillis()
+
+            val sessionId =
+                workoutSessionRepository.startSession(
+                    workoutId = 0L,
+                    startedAt = startedAt
+                )
+
+            val exerciseIds =
+                exerciseNames.mapIndexed { index, name ->
+
+                    workoutSessionRepository.addExercise(
+                        sessionId = sessionId,
+                        exerciseName = name,
+                        exerciseOrder = index
+                    )
+                }
+
+            _uiState.value =
+                ActiveWorkoutUiState(
+                    isWorkoutStarted = true,
+                    sessionId = sessionId,
+                    sessionStartedAt = startedAt,
+                    exerciseIds = exerciseIds,
+                    isSessionReady = true
+                )
+        }
     }
 
     fun completeSet(
@@ -39,56 +85,132 @@ class ActiveWorkoutViewModel : ViewModel() {
             return
         }
 
-        val updatedCompletedSets =
-            currentState.completedSets + 1
+        val exerciseId =
+            currentState.exerciseIds
+                .getOrNull(currentState.currentExerciseIndex)
+
+        val reps =
+            currentState.currentReps
+                .toIntOrNull()
+
+        val weight =
+            currentState.currentWeight
+                .toDoubleOrNull()
 
         /*
-         * If this was the final set of the current exercise,
-         * move to the next exercise.
+         * We cannot save the set unless the current
+         * exercise, reps and weight are valid.
          */
-        if (currentState.currentSet >= totalSets) {
+        if (
+            exerciseId == null ||
+            reps == null ||
+            weight == null
+        ) {
+            return
+        }
 
-            if (
-                currentState.currentExerciseIndex >=
-                totalExercises - 1
-            ) {
+        viewModelScope.launch {
+
+            /*
+             * Save this exact set before progressing.
+             *
+             * Weight belongs to the SET, not individual reps.
+             * This also allows future drop sets.
+             */
+            workoutSessionRepository.addSet(
+                workoutExerciseId = exerciseId,
+                setNumber = currentState.currentSet,
+                reps = reps,
+                weight = weight
+            )
+
+            if (currentState.currentSet >= totalSets) {
+                workoutSessionRepository.completeExercise(
+                    exerciseId = exerciseId
+                )
+            }
+
+            val updatedCompletedSets =
+                currentState.completedSets + 1
+
+            /*
+             * If this was the final set of the current exercise,
+             * move to the next exercise.
+             */
+            if (currentState.currentSet >= totalSets) {
+
+                if (
+                    currentState.currentExerciseIndex >=
+                    totalExercises - 1
+                ) {
+                    /*
+                     * Entire workout is complete.
+                     */
+                    val completedAt =
+                        System.currentTimeMillis()
+
+                    val sessionStartedAt =
+                        currentState.sessionStartedAt
+
+                    val sessionId =
+                        currentState.sessionId
+
+                    if (
+                        sessionStartedAt != null &&
+                        sessionId != null
+                    ) {
+
+                        val durationSeconds =
+                            (
+                                    completedAt - sessionStartedAt
+                                    ) / 1_000L
+
+                        workoutSessionRepository.completeSession(
+                            sessionId = sessionId,
+                            completedAt = completedAt,
+                            durationSeconds = durationSeconds
+                        )
+                    }
+
+                    _uiState.value = currentState.copy(
+                        completedSets = updatedCompletedSets,
+                        isWorkoutComplete = true,
+                        isResting = false,
+                        restSecondsRemaining = 0
+                    )
+
+                    return@launch
+                }
+
                 /*
-                 * Entire workout is complete.
+                 * Move to the next exercise.
                  */
                 _uiState.value = currentState.copy(
                     completedSets = updatedCompletedSets,
-                    isWorkoutComplete = true,
+                    currentExerciseIndex =
+                        currentState.currentExerciseIndex + 1,
+                    currentSet = 1,
+                    currentWeight = "",
+                    currentReps = "",
                     isResting = false,
                     restSecondsRemaining = 0
                 )
 
-                return
+                return@launch
             }
 
             /*
-             * Move to the next exercise.
+             * There are more sets remaining.
+             *
+             * The completed set is already saved,
+             * so now start the rest timer.
              */
-            _uiState.value = currentState.copy(
-                completedSets = updatedCompletedSets,
-                currentExerciseIndex =
-                    currentState.currentExerciseIndex + 1,
-                currentSet = 1,
-                isResting = false,
-                restSecondsRemaining = 0
+            startRestTimer(
+                seconds = restSeconds,
+                nextSet = currentState.currentSet + 1,
+                completedSets = updatedCompletedSets
             )
-
-            return
         }
-
-        /*
-         * There are more sets remaining for this exercise.
-         * Start the rest timer before moving to the next set.
-         */
-        startRestTimer(
-            seconds = restSeconds,
-            nextSet = currentState.currentSet + 1,
-            completedSets = updatedCompletedSets
-        )
     }
 
     fun skipRest(
@@ -115,8 +237,9 @@ class ActiveWorkoutViewModel : ViewModel() {
         if (currentState.currentSet < totalSets) {
 
             _uiState.value = _uiState.value.copy(
-                currentSet =
-                    currentState.currentSet + 1
+                currentSet = currentState.currentSet + 1,
+                currentWeight = "",
+                currentReps = ""
             )
 
         } else if (
@@ -127,7 +250,9 @@ class ActiveWorkoutViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(
                 currentExerciseIndex =
                     currentState.currentExerciseIndex + 1,
-                currentSet = 1
+                currentSet = 1,
+                currentWeight = "",
+                currentReps = ""
             )
         }
     }
@@ -139,18 +264,65 @@ class ActiveWorkoutViewModel : ViewModel() {
             return
         }
 
+        /*
+         * If this is the last exercise,
+         * Next Exercise means finish the workout.
+         */
         if (
-            currentState.currentExerciseIndex <
+            currentState.currentExerciseIndex >=
             totalExercises - 1
         ) {
-            _uiState.value = currentState.copy(
-                currentExerciseIndex =
-                    currentState.currentExerciseIndex + 1,
-                currentSet = 1,
-                isResting = false,
-                restSecondsRemaining = 0
-            )
+
+            val completedAt =
+                System.currentTimeMillis()
+
+            val sessionStartedAt =
+                currentState.sessionStartedAt
+
+            val sessionId =
+                currentState.sessionId
+
+            viewModelScope.launch {
+
+                if (
+                    sessionStartedAt != null &&
+                    sessionId != null
+                ) {
+
+                    val durationSeconds =
+                        (
+                                completedAt - sessionStartedAt
+                                ) / 1_000L
+
+                    workoutSessionRepository.completeSession(
+                        sessionId = sessionId,
+                        completedAt = completedAt,
+                        durationSeconds = durationSeconds
+                    )
+                }
+
+                _uiState.value = currentState.copy(
+                    isWorkoutComplete = true,
+                    isResting = false,
+                    restSecondsRemaining = 0
+                )
+            }
+
+            return
         }
+
+        /*
+         * Otherwise move to the next exercise.
+         */
+        _uiState.value = currentState.copy(
+            currentExerciseIndex =
+                currentState.currentExerciseIndex + 1,
+            currentSet = 1,
+            currentWeight = "",
+            currentReps = "",
+            isResting = false,
+            restSecondsRemaining = 0
+        )
     }
 
     fun finishWorkout() {
@@ -189,6 +361,8 @@ class ActiveWorkoutViewModel : ViewModel() {
             _uiState.value =
                 _uiState.value.copy(
                     currentSet = nextSet,
+                    currentWeight = "",
+                    currentReps = "",
                     isResting = false,
                     restSecondsRemaining = 0
                 )

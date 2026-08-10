@@ -17,6 +17,8 @@ import com.ngedo.force.feature.profile.ProfileScreen
 import com.ngedo.force.feature.progress.ProgressScreen
 import com.ngedo.force.feature.workout.WorkoutScreen
 import androidx.compose.foundation.layout.padding
+import com.ngedo.force.feature.ai.AiCoachScreen
+
 @Composable
 fun ForceNavGraph() {
 
@@ -140,6 +142,13 @@ fun ForceNavGraph() {
                 route = ForceDestination.Profile.route
             ) {
                 ProfileScreen()
+            }
+            composable(ForceDestination.AiCoach.route) {
+                AiCoachScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }
