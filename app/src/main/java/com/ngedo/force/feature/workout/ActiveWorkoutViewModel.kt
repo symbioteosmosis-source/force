@@ -17,12 +17,58 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val workoutSessionRepository: WorkoutSessionRepository
 ) : ViewModel() {
 
+    private var setsObserverJob: Job? = null
+
     private val _uiState = MutableStateFlow(
         ActiveWorkoutUiState()
     )
 
     val uiState: StateFlow<ActiveWorkoutUiState> =
         _uiState.asStateFlow()
+
+    private fun observeSetsForCurrentExercise(
+        exerciseId: Long
+    ) {
+        setsObserverJob?.cancel()
+
+        setsObserverJob = viewModelScope.launch {
+
+            workoutSessionRepository
+                .getSetsForExercise(exerciseId)
+                .collect { sets ->
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            completedSetsForCurrentExercise = sets
+                        )
+                }
+        }
+    }
+
+
+    private fun loadPreviousBest(
+        exerciseId: Long,
+        exerciseName: String
+    ) {
+
+        viewModelScope.launch {
+
+            val previousBest =
+                workoutSessionRepository.getPreviousBestSet(
+                    exerciseName = exerciseName,
+                    currentExerciseId = exerciseId
+                )
+
+            _uiState.value =
+                _uiState.value.copy(
+                    previousBestWeight =
+                        previousBest?.weight,
+
+                    previousBestReps =
+                        previousBest?.reps
+                )
+        }
+    }
 
     private var restTimerJob: Job? = null
     fun updateCurrentWeight(weight: String) {
@@ -69,8 +115,21 @@ class ActiveWorkoutViewModel @Inject constructor(
                     sessionId = sessionId,
                     sessionStartedAt = startedAt,
                     exerciseIds = exerciseIds,
+                    exerciseNames = exerciseNames,
                     isSessionReady = true
                 )
+
+            exerciseIds.firstOrNull()?.let { exerciseId ->
+
+                observeSetsForCurrentExercise(
+                    exerciseId
+                )
+
+                loadPreviousBest(
+                    exerciseId = exerciseId,
+                    exerciseName = exerciseNames.first()
+                )
+            }
         }
     }
 
@@ -92,23 +151,24 @@ class ActiveWorkoutViewModel @Inject constructor(
         val reps =
             currentState.currentReps
                 .toIntOrNull()
+                ?: 0
 
         val weight =
             currentState.currentWeight
                 .toDoubleOrNull()
+                ?: 0.0
 
         /*
-         * We cannot save the set unless the current
-         * exercise, reps and weight are valid.
+         * Exercise ID is required because the completed
+         * set must belong to an exercise.
+         *
+         * Weight and reps are optional.
+         * Empty fields are stored as 0 so the user can
+         * complete the set without entering them.
          */
-        if (
-            exerciseId == null ||
-            reps == null ||
-            weight == null
-        ) {
+        if (exerciseId == null) {
             return
         }
-
         viewModelScope.launch {
 
             /*
@@ -143,9 +203,11 @@ class ActiveWorkoutViewModel @Inject constructor(
                     currentState.currentExerciseIndex >=
                     totalExercises - 1
                 ) {
+
                     /*
                      * Entire workout is complete.
                      */
+
                     val completedAt =
                         System.currentTimeMillis()
 
@@ -172,9 +234,18 @@ class ActiveWorkoutViewModel @Inject constructor(
                         )
                     }
 
+                    /*
+                     * IMPORTANT:
+                     *
+                     * Do NOT increment currentExerciseIndex here.
+                     * We are already on the final exercise.
+                     */
+
                     _uiState.value = currentState.copy(
                         completedSets = updatedCompletedSets,
                         isWorkoutComplete = true,
+                        currentWeight = "",
+                        currentReps = "",
                         isResting = false,
                         restSecondsRemaining = 0
                     )
@@ -185,16 +256,42 @@ class ActiveWorkoutViewModel @Inject constructor(
                 /*
                  * Move to the next exercise.
                  */
+                val nextExerciseIndex =
+                    currentState.currentExerciseIndex + 1
+
+                val nextExerciseId =
+                    currentState.exerciseIds
+                        .getOrNull(nextExerciseIndex)
+
                 _uiState.value = currentState.copy(
                     completedSets = updatedCompletedSets,
-                    currentExerciseIndex =
-                        currentState.currentExerciseIndex + 1,
+                    currentExerciseIndex = nextExerciseIndex,
                     currentSet = 1,
                     currentWeight = "",
                     currentReps = "",
                     isResting = false,
-                    restSecondsRemaining = 0
+                    restSecondsRemaining = 0,
+                    completedSetsForCurrentExercise = emptyList(),
+                    previousBestWeight = null,
+                    previousBestReps = null
                 )
+
+                nextExerciseId?.let { exerciseId ->
+
+                    observeSetsForCurrentExercise(
+                        exerciseId
+                    )
+
+                    currentState.exerciseNames
+                        .getOrNull(nextExerciseIndex)
+                        ?.let { exerciseName ->
+
+                            loadPreviousBest(
+                                exerciseId = exerciseId,
+                                exerciseName = exerciseName
+                            )
+                        }
+                }
 
                 return@launch
             }
@@ -247,13 +344,37 @@ class ActiveWorkoutViewModel @Inject constructor(
             totalExercises - 1
         ) {
 
+            val nextExerciseIndex =
+                currentState.currentExerciseIndex + 1
+
+            val nextExerciseId =
+                currentState.exerciseIds
+                    .getOrNull(nextExerciseIndex)
+
             _uiState.value = _uiState.value.copy(
-                currentExerciseIndex =
-                    currentState.currentExerciseIndex + 1,
+                currentExerciseIndex = nextExerciseIndex,
                 currentSet = 1,
                 currentWeight = "",
-                currentReps = ""
+                currentReps = "",
+                completedSetsForCurrentExercise = emptyList()
             )
+
+            nextExerciseId?.let { exerciseId ->
+
+                observeSetsForCurrentExercise(
+                    exerciseId
+                )
+
+                currentState.exerciseNames
+                    .getOrNull(nextExerciseIndex)
+                    ?.let { exerciseName ->
+
+                        loadPreviousBest(
+                            exerciseId = exerciseId,
+                            exerciseName = exerciseName
+                        )
+                    }
+            }
         }
     }
 
@@ -314,15 +435,41 @@ class ActiveWorkoutViewModel @Inject constructor(
         /*
          * Otherwise move to the next exercise.
          */
+        val nextExerciseIndex =
+            currentState.currentExerciseIndex + 1
+
+        val nextExerciseId =
+            currentState.exerciseIds
+                .getOrNull(nextExerciseIndex)
+
         _uiState.value = currentState.copy(
-            currentExerciseIndex =
-                currentState.currentExerciseIndex + 1,
+            currentExerciseIndex = nextExerciseIndex,
             currentSet = 1,
             currentWeight = "",
             currentReps = "",
             isResting = false,
-            restSecondsRemaining = 0
+            restSecondsRemaining = 0,
+            completedSetsForCurrentExercise = emptyList(),
+            previousBestWeight = null,
+            previousBestReps = null
         )
+
+        nextExerciseId?.let { exerciseId ->
+
+            observeSetsForCurrentExercise(
+                exerciseId
+            )
+
+            currentState.exerciseNames
+                .getOrNull(nextExerciseIndex)
+                ?.let { exerciseName ->
+
+                    loadPreviousBest(
+                        exerciseId = exerciseId,
+                        exerciseName = exerciseName
+                    )
+                }
+        }
     }
 
     fun finishWorkout() {
@@ -342,6 +489,8 @@ class ActiveWorkoutViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(
                 completedSets = completedSets,
+                currentWeight = "",
+                currentReps = "",
                 isResting = true,
                 restSecondsRemaining = seconds
             )
@@ -371,6 +520,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     override fun onCleared() {
         restTimerJob?.cancel()
+        setsObserverJob?.cancel()
         super.onCleared()
     }
 }

@@ -93,11 +93,46 @@ class WorkoutSessionRepository(
             workoutExerciseId
         )
     }
+    suspend fun getSetsForExerciseOnce(
+        workoutExerciseId: Long
+    ): List<WorkoutSetEntity> {
+
+        return workoutSetDao.getSetsForExerciseOnce(
+            workoutExerciseId
+        )
+    }
+    suspend fun getPreviousBestSet(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): WorkoutSetEntity? {
+
+        return workoutSetDao.getPreviousBestSet(
+            exerciseName = exerciseName,
+            currentExerciseId = currentExerciseId
+        )
+    }
     suspend fun completeExercise(
         exerciseId: Long
     ) {
         workoutExerciseDao.markExerciseCompleted(
             exerciseId
+        )
+    }
+    suspend fun getPreviousBestWeight(
+        exerciseName: String
+    ): Double? {
+
+        return workoutSetDao.getPreviousBestWeight(
+            exerciseName
+        )
+    }
+
+    suspend fun getPreviousBestReps(
+        exerciseName: String
+    ): Int? {
+
+        return workoutSetDao.getPreviousBestReps(
+            exerciseName
         )
     }
 }

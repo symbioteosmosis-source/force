@@ -1,5 +1,5 @@
 package com.ngedo.force.feature.workout
-
+import com.ngedo.force.data.local.entity.WorkoutSetEntity
 data class ActiveWorkoutUiState(
     val isWorkoutStarted: Boolean = false,
     val isWorkoutComplete: Boolean = false,
@@ -7,6 +7,7 @@ data class ActiveWorkoutUiState(
     val sessionId: Long? = null,
     val sessionStartedAt: Long? = null,
     val exerciseIds: List<Long> = emptyList(),
+    val exerciseNames: List<String> = emptyList(),
     val isSessionReady: Boolean = false,
 
     val currentExerciseIndex: Int = 0,
@@ -17,5 +18,9 @@ data class ActiveWorkoutUiState(
     val currentReps: String = "",
 
     val isResting: Boolean = false,
-    val restSecondsRemaining: Int = 0
-)
+    val restSecondsRemaining: Int = 0,
+    val completedSetsForCurrentExercise: List<WorkoutSetEntity> = emptyList(),
+
+    val previousBestWeight: Double? = null,
+    val previousBestReps: Int? = null,
+    )

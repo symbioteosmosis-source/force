@@ -1,6 +1,7 @@
 package com.ngedo.force.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -11,71 +12,125 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ngedo.force.designsystem.ForceColors
 import com.ngedo.force.designsystem.components.navigation.ForceBottomBar
+import com.ngedo.force.feature.ai.AiCoachScreen
 import com.ngedo.force.feature.home.HomeScreen
 import com.ngedo.force.feature.nutrition.NutritionScreen
 import com.ngedo.force.feature.profile.ProfileScreen
 import com.ngedo.force.feature.progress.ProgressScreen
+import com.ngedo.force.feature.workout.WorkoutHistoryScreen
 import com.ngedo.force.feature.workout.WorkoutScreen
-import androidx.compose.foundation.layout.padding
-import com.ngedo.force.feature.ai.AiCoachScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.ngedo.force.feature.workout.WorkoutHistoryDetailScreen
 
 @Composable
 fun ForceNavGraph() {
 
-    val navController = rememberNavController()
+    val navController =
+        rememberNavController()
 
-    val navBackStackEntry by navController
-        .currentBackStackEntryAsState()
+    val navBackStackEntry by
+    navController.currentBackStackEntryAsState()
 
     val currentRoute =
-        navBackStackEntry?.destination?.route
+        navBackStackEntry
+            ?.destination
+            ?.route
 
-    val selectedIndex = when (currentRoute) {
 
-        ForceDestination.Home.route -> 0
+    /*
+     * =========================================================
+     * SELECTED BOTTOM NAVIGATION ITEM
+     * =========================================================
+     */
 
-        ForceDestination.Workout.route -> 1
+    val selectedIndex =
+        when (currentRoute) {
 
-        ForceDestination.Progress.route -> 2
+            ForceDestination.Home.route -> 0
 
-        ForceDestination.Nutrition.route -> 3
+            ForceDestination.Workout.route -> 1
 
-        ForceDestination.Profile.route -> 4
+            ForceDestination.Progress.route -> 2
 
-        else -> 0
-    }
+            ForceDestination.Nutrition.route -> 3
+
+            ForceDestination.Profile.route -> 4
+
+            else -> 0
+        }
+
+
+    /*
+     * =========================================================
+     * BOTTOM BAR VISIBILITY
+     * =========================================================
+     *
+     * Hide the bottom navigation while:
+     *
+     * - Performing a workout
+     * - Viewing workout history
+     */
 
     val showBottomBar =
-        currentRoute != ForceDestination.Workout.route
+        currentRoute !=
+                ForceDestination.Workout.route &&
+                currentRoute !=
+                ForceDestination.WorkoutHistory.route &&
+                currentRoute !=
+                ForceDestination.WorkoutHistoryDetail.route
+
+
+    /*
+     * =========================================================
+     * APP SCAFFOLD
+     * =========================================================
+     */
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = ForceColors.Background,
+        modifier =
+            Modifier.fillMaxSize(),
+
+        containerColor =
+            ForceColors.Background,
 
         bottomBar = {
 
             if (showBottomBar) {
 
                 ForceBottomBar(
-                    selectedIndex = selectedIndex,
+                    selectedIndex =
+                        selectedIndex,
 
                     onItemSelected = { index ->
 
                         val destination =
                             when (index) {
 
-                                0 -> ForceDestination.Home
+                                0 ->
+                                    ForceDestination.Home
 
-                                1 -> ForceDestination.Workout
+                                1 ->
+                                    ForceDestination.Workout
 
-                                2 -> ForceDestination.Progress
+                                2 ->
+                                    ForceDestination.Progress
 
-                                3 -> ForceDestination.Nutrition
+                                3 ->
+                                    ForceDestination.Nutrition
 
-                                4 -> ForceDestination.Profile
+                                4 ->
+                                    ForceDestination.Profile
 
-                                else -> ForceDestination.Home
+                                else ->
+                                    ForceDestination.Home
                             }
+
+
+                        /*
+                         * Navigate between the main
+                         * bottom navigation destinations.
+                         */
 
                         navController.navigate(
                             destination.route
@@ -88,6 +143,7 @@ fun ForceNavGraph() {
                             }
 
                             launchSingleTop = true
+
                             restoreState = true
                         }
                     }
@@ -96,16 +152,37 @@ fun ForceNavGraph() {
         }
     ) { innerPadding ->
 
+
+        /*
+         * =====================================================
+         * NAVIGATION HOST
+         * =====================================================
+         */
+
         NavHost(
-            navController = navController,
-            startDestination = ForceDestination.Home.route,
+            navController =
+                navController,
+
+            startDestination =
+                ForceDestination.Home.route,
+
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(
+                    innerPadding
+                )
         ) {
 
+
+            /*
+             * -------------------------------------------------
+             * HOME
+             * -------------------------------------------------
+             */
+
             composable(
-                route = ForceDestination.Home.route
+                route =
+                    ForceDestination.Home.route
             ) {
 
                 HomeScreen(
@@ -114,38 +191,156 @@ fun ForceNavGraph() {
                         navController.navigate(
                             destination.route
                         ) {
+
                             launchSingleTop = true
                         }
                     }
                 )
             }
 
+
+            /*
+             * -------------------------------------------------
+             * WORKOUT
+             * -------------------------------------------------
+             */
+
             composable(
-                route = ForceDestination.Workout.route
+                route =
+                    ForceDestination.Workout.route
             ) {
+
                 WorkoutScreen()
             }
 
+
+            /*
+             * -------------------------------------------------
+             * WORKOUT HISTORY
+             * -------------------------------------------------
+             */
+
             composable(
-                route = ForceDestination.Progress.route
+                route =
+                    ForceDestination.WorkoutHistory.route
             ) {
-                ProgressScreen()
+
+                WorkoutHistoryScreen(
+                    onSessionClick = { sessionId ->
+
+                        navController.navigate(
+                            ForceDestination
+                                .WorkoutHistoryDetail
+                                .createRoute(
+                                    sessionId
+                                )
+                        )
+                    }
+                )
             }
 
             composable(
-                route = ForceDestination.Nutrition.route
+                route =
+                    ForceDestination
+                        .WorkoutHistoryDetail
+                        .route,
+
+                arguments = listOf(
+                    navArgument(
+                        "sessionId"
+                    ) {
+                        type =
+                            NavType.LongType
+                    }
+                )
+            ) { backStackEntry ->
+
+                val sessionId =
+                    backStackEntry
+                        .arguments
+                        ?.getLong(
+                            "sessionId"
+                        )
+                        ?: return@composable
+
+                WorkoutHistoryDetailScreen(
+                    sessionId =
+                        sessionId,
+
+                    onBack = {
+                        navController
+                            .popBackStack()
+                    }
+                )
+            }
+
+
+            /*
+             * -------------------------------------------------
+             * PROGRESS
+             * -------------------------------------------------
+             */
+
+            composable(
+                route =
+                    ForceDestination.Progress.route
             ) {
+
+                ProgressScreen(
+                    onWorkoutHistoryClick = {
+
+                        navController.navigate(
+                            ForceDestination.WorkoutHistory.route
+                        )
+                    }
+                )
+            }
+
+
+            /*
+             * -------------------------------------------------
+             * NUTRITION
+             * -------------------------------------------------
+             */
+
+            composable(
+                route =
+                    ForceDestination.Nutrition.route
+            ) {
+
                 NutritionScreen()
             }
 
+
+            /*
+             * -------------------------------------------------
+             * PROFILE
+             * -------------------------------------------------
+             */
+
             composable(
-                route = ForceDestination.Profile.route
+                route =
+                    ForceDestination.Profile.route
             ) {
+
                 ProfileScreen()
             }
-            composable(ForceDestination.AiCoach.route) {
+
+
+            /*
+             * -------------------------------------------------
+             * AI COACH
+             * -------------------------------------------------
+             */
+
+            composable(
+                route =
+                    ForceDestination.AiCoach.route
+            ) {
+
                 AiCoachScreen(
                     onBack = {
+
                         navController.popBackStack()
                     }
                 )

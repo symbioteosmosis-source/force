@@ -42,7 +42,53 @@ interface WorkoutSetDao {
         ORDER BY setNumber ASC
         """
     )
+
     suspend fun getSetsForExerciseOnce(
         workoutExerciseId: Long
     ): List<WorkoutSetEntity>
+
+    @Query(
+        """
+    SELECT MAX(weight)
+    FROM workout_sets ws
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+    WHERE we.exerciseName = :exerciseName
+    """
+    )
+    suspend fun getPreviousBestWeight(
+        exerciseName: String
+    ): Double?
+
+    @Query(
+        """
+    SELECT MAX(reps)
+    FROM workout_sets ws
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+    WHERE we.exerciseName = :exerciseName
+    """
+    )
+    suspend fun getPreviousBestReps(
+        exerciseName: String
+    ): Int?
+
+    @Query(
+        """
+    SELECT ws.*
+    FROM workout_sets ws
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+    WHERE we.exerciseName = :exerciseName
+      AND we.id != :currentExerciseId
+      AND ws.weight > 0
+    ORDER BY ws.weight DESC, ws.reps DESC
+    LIMIT 1
+    """
+    )
+    suspend fun getPreviousBestSet(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): WorkoutSetEntity?
+
 }

@@ -74,5 +74,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(project(":data"))
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.coil.compose)
+
 
 }
