@@ -98,11 +98,33 @@ fun WorkoutScreen(
 
     when {
 
-        /*
-         * -------------------------------------------------
-         * WORKOUT COMPLETE
-         * -------------------------------------------------
-         */
+        uiState.pendingWorkoutCompletion &&
+                (
+                        uiState.isNewWeightRecord ||
+                                uiState.isNewRepRecord
+                        ) &&
+                uiState.currentExerciseIndex in todaysWorkout.indices -> {
+
+            ActiveWorkoutContent(
+                uiState = uiState,
+
+                onWeightChange = {
+                    workoutViewModel.updateCurrentWeight(it)
+                },
+
+                onRepsChange = {
+                    workoutViewModel.updateCurrentReps(it)
+                },
+
+                onDismissPersonalRecord = {
+                    workoutViewModel.clearPersonalRecordNotification()
+                },
+
+                onCompleteSet = {},
+                onSkipRest = {},
+                onNextExercise = {}
+            )
+        }
 
         uiState.isWorkoutComplete -> {
 
@@ -113,13 +135,6 @@ fun WorkoutScreen(
                 }
             )
         }
-
-
-        /*
-         * -------------------------------------------------
-         * ACTIVE WORKOUT
-         * -------------------------------------------------
-         */
 
         uiState.isWorkoutStarted &&
                 uiState.currentExerciseIndex in todaysWorkout.indices -> {
@@ -135,10 +150,16 @@ fun WorkoutScreen(
                     workoutViewModel.updateCurrentReps(it)
                 },
 
+                onDismissPersonalRecord = {
+                    workoutViewModel.clearPersonalRecordNotification()
+                },
+
                 onCompleteSet = {
 
                     val exercise =
-                        todaysWorkout[uiState.currentExerciseIndex]
+                        todaysWorkout[
+                            uiState.currentExerciseIndex
+                        ]
 
                     workoutViewModel.completeSet(
                         totalSets = exercise.sets,
@@ -150,7 +171,9 @@ fun WorkoutScreen(
                 onSkipRest = {
 
                     val exercise =
-                        todaysWorkout[uiState.currentExerciseIndex]
+                        todaysWorkout[
+                            uiState.currentExerciseIndex
+                        ]
 
                     workoutViewModel.skipRest(
                         totalSets = exercise.sets,
@@ -159,7 +182,6 @@ fun WorkoutScreen(
                 },
 
                 onNextExercise = {
-
                     workoutViewModel.nextExercise(
                         todaysWorkout.size
                     )
@@ -353,7 +375,8 @@ private fun ActiveWorkoutContent(
     onRepsChange: (String) -> Unit,
     onCompleteSet: () -> Unit,
     onSkipRest: () -> Unit,
-    onNextExercise: () -> Unit
+    onNextExercise: () -> Unit,
+    onDismissPersonalRecord: () -> Unit
 ) {
 
     val exercise =
@@ -815,6 +838,134 @@ private fun ActiveWorkoutContent(
                 Spacer(
                     modifier = Modifier.height(16.dp)
                 )
+                /*
+ * -------------------------------------------------
+ * NEW PERSONAL RECORD
+ * -------------------------------------------------
+ */
+
+                if (
+                    uiState.isNewWeightRecord ||
+                    uiState.isNewRepRecord
+                ) {
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = ForceColors.Surface,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(16.dp),
+                        verticalArrangement =
+                            Arrangement.spacedBy(10.dp)
+                    ) {
+
+                        Text(
+                            text = "🏆 New Personal Record",
+                            color = ForceColors.Primary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        if (uiState.isNewWeightRecord) {
+
+                            Text(
+                                text = "Heaviest Set",
+                                color = ForceColors.TextPrimary,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text =
+                                    "Previous: " +
+                                            formatPrSet(
+                                                weight =
+                                                    uiState.previousRecordWeight,
+                                                reps =
+                                                    uiState.previousRecordWeightReps
+                                            ),
+                                color = ForceColors.TextSecondary
+                            )
+
+                            Text(
+                                text =
+                                    "New: " +
+                                            formatPrSet(
+                                                weight = uiState.newRecordWeight,
+                                                reps = uiState.newRecordReps
+                                            ),
+                                color = ForceColors.Primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (uiState.isNewRepRecord) {
+
+                            if (uiState.isNewWeightRecord) {
+                                Spacer(
+                                    modifier = Modifier.height(4.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "Rep Record",
+                                color = ForceColors.TextPrimary,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text =
+                                    "Previous: " +
+                                            formatPrSet(
+                                                weight =
+                                                    uiState.previousRecordRepsWeight,
+                                                reps =
+                                                    uiState.previousRecordReps
+                                            ),
+                                color = ForceColors.TextSecondary
+                            )
+
+                            Text(
+                                text =
+                                    "New: " +
+                                            formatPrSet(
+                                                weight = uiState.newRecordWeight,
+                                                reps = uiState.newRecordReps
+                                            ),
+                                color = ForceColors.Primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick =
+                                onDismissPersonalRecord,
+                            modifier =
+                                Modifier.fillMaxWidth(),
+                            colors =
+                                ButtonDefaults.buttonColors(
+                                    containerColor =
+                                        ForceColors.Primary
+                                ),
+                            shape =
+                                RoundedCornerShape(12.dp)
+                        ) {
+
+                            Text(
+                                text = "Continue",
+                                color = ForceColors.Background,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+                }
 
                 /*
                  * -------------------------------------------------
@@ -1831,4 +1982,36 @@ private fun formatRestTime(
         minutes,
         remainingSeconds
     )
+}
+
+private fun formatPrSet(
+    weight: Double?,
+    reps: Int?
+): String {
+
+    val weightText =
+        when {
+
+            weight == null ||
+                    weight <= 0.0 ->
+                "-"
+
+            weight % 1.0 == 0.0 ->
+                "${weight.toInt()} kg"
+
+            else ->
+                "$weight kg"
+        }
+
+    val repsText =
+        if (
+            reps != null &&
+            reps > 0
+        ) {
+            "$reps reps"
+        } else {
+            "-"
+        }
+
+    return "$weightText × $repsText"
 }

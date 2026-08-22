@@ -7,6 +7,8 @@ import com.ngedo.force.data.local.entity.WorkoutExerciseEntity
 import com.ngedo.force.data.local.entity.WorkoutSessionEntity
 import com.ngedo.force.data.local.entity.WorkoutSetEntity
 import kotlinx.coroutines.flow.Flow
+import com.ngedo.force.data.local.model.ExercisePersonalRecord
+import com.ngedo.force.data.local.model.PersonalRecordResult
 
 class WorkoutSessionRepository(
     private val workoutSessionDao: WorkoutSessionDao,
@@ -135,4 +137,143 @@ class WorkoutSessionRepository(
             exerciseName
         )
     }
+
+    suspend fun getPersonalRecords():
+            List<ExercisePersonalRecord> {
+
+        val weightRecords =
+            workoutSetDao.getHighestWeightRecords()
+
+        val repRecords =
+            workoutSetDao.getHighestRepRecords()
+
+        /*
+         * Collect every exercise that has either
+         * a weight record or a rep record.
+         */
+        val exerciseNames =
+            (
+                    weightRecords.map {
+                        it.exerciseName
+                    } +
+                            repRecords.map {
+                                it.exerciseName
+                            }
+                    )
+                .distinct()
+                .sorted()
+
+        /*
+         * Merge the two real historical sets into
+         * one Personal Record object per exercise.
+         */
+        return exerciseNames.map { exerciseName ->
+
+            val weightRecord =
+                weightRecords.firstOrNull {
+                    it.exerciseName == exerciseName
+                }
+
+            val repRecord =
+                repRecords.firstOrNull {
+                    it.exerciseName == exerciseName
+                }
+
+            ExercisePersonalRecord(
+                exerciseName = exerciseName,
+
+                highestWeight =
+                    weightRecord?.highestWeight,
+
+                repsAtHighestWeight =
+                    weightRecord?.repsAtHighestWeight,
+
+                highestReps =
+                    repRecord?.highestReps,
+
+                weightAtHighestReps =
+                    repRecord?.weightAtHighestReps
+            )
+        }
+    }
+    suspend fun checkPersonalRecord(
+        exerciseName: String,
+        newWeight: Double,
+        newReps: Int
+    ): PersonalRecordResult {
+
+        val previousBestWeightSet =
+            workoutSetDao.getPreviousHighestWeightSet(
+                exerciseName = exerciseName
+            )
+
+        val previousBestRepSet =
+            workoutSetDao.getPreviousHighestRepSet(
+                exerciseName = exerciseName
+            )
+
+        val isNewWeightRecord =
+            when {
+
+                newWeight <= 0.0 ->
+                    false
+
+                previousBestWeightSet == null ->
+                    true
+
+                newWeight >
+                        previousBestWeightSet.weight ->
+                    true
+
+                newWeight ==
+                        previousBestWeightSet.weight &&
+                        newReps >
+                        previousBestWeightSet.reps ->
+                    true
+
+                else ->
+                    false
+            }
+
+        val isNewRepRecord =
+            when {
+
+                newReps <= 0 ->
+                    false
+
+                previousBestRepSet == null ->
+                    true
+
+                newReps >
+                        previousBestRepSet.reps ->
+                    true
+
+                newReps ==
+                        previousBestRepSet.reps &&
+                        newWeight >
+                        previousBestRepSet.weight ->
+                    true
+
+                else ->
+                    false
+            }
+
+        return PersonalRecordResult(
+            isNewWeightRecord = isNewWeightRecord,
+            isNewRepRecord = isNewRepRecord,
+
+            previousHighestWeight =
+                previousBestWeightSet?.weight,
+
+            previousRepsAtHighestWeight =
+                previousBestWeightSet?.reps,
+
+            previousHighestReps =
+                previousBestRepSet?.reps,
+
+            previousWeightAtHighestReps =
+                previousBestRepSet?.weight
+        )
+    }
+
 }

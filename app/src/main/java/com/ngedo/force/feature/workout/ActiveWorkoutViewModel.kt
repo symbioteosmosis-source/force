@@ -177,12 +177,60 @@ class ActiveWorkoutViewModel @Inject constructor(
              * Weight belongs to the SET, not individual reps.
              * This also allows future drop sets.
              */
+            val exerciseName =
+                currentState.exerciseNames
+                    .getOrNull(
+                        currentState.currentExerciseIndex
+                    )
+
+            val personalRecordResult =
+                if (exerciseName != null) {
+
+                    workoutSessionRepository
+                        .checkPersonalRecord(
+                            exerciseName = exerciseName,
+                            newWeight = weight,
+                            newReps = reps
+                        )
+
+                } else {
+                    null
+                }
+
+
             workoutSessionRepository.addSet(
                 workoutExerciseId = exerciseId,
                 setNumber = currentState.currentSet,
                 reps = reps,
                 weight = weight
             )
+
+            if (personalRecordResult != null) {
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        isNewWeightRecord =
+                            personalRecordResult.isNewWeightRecord,
+
+                        isNewRepRecord =
+                            personalRecordResult.isNewRepRecord,
+
+                        previousRecordWeight =
+                            personalRecordResult.previousHighestWeight,
+
+                        previousRecordWeightReps =
+                            personalRecordResult.previousRepsAtHighestWeight,
+
+                        previousRecordReps =
+                            personalRecordResult.previousHighestReps,
+
+                        previousRecordRepsWeight =
+                            personalRecordResult.previousWeightAtHighestReps,
+
+                        newRecordWeight = weight,
+                        newRecordReps = reps
+                    )
+            }
 
             if (currentState.currentSet >= totalSets) {
                 workoutSessionRepository.completeExercise(
@@ -241,40 +289,87 @@ class ActiveWorkoutViewModel @Inject constructor(
                      * We are already on the final exercise.
                      */
 
-                    _uiState.value = currentState.copy(
-                        completedSets = updatedCompletedSets,
-                        isWorkoutComplete = true,
-                        currentWeight = "",
-                        currentReps = "",
-                        isResting = false,
-                        restSecondsRemaining = 0
-                    )
+                    val hasNewPersonalRecord =
+                        personalRecordResult?.isNewWeightRecord == true ||
+                                personalRecordResult?.isNewRepRecord == true
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            completedSets = updatedCompletedSets,
+                            currentWeight = "",
+                            currentReps = "",
+                            isResting = false,
+                            restSecondsRemaining = 0,
+
+                            pendingWorkoutCompletion =
+                                hasNewPersonalRecord,
+
+                            isWorkoutComplete =
+                                !hasNewPersonalRecord
+                        )
 
                     return@launch
                 }
 
                 /*
-                 * Move to the next exercise.
-                 */
+ * Move to the next exercise.
+ */
+
                 val nextExerciseIndex =
                     currentState.currentExerciseIndex + 1
+
+                val hasNewPersonalRecord =
+                    personalRecordResult?.isNewWeightRecord == true ||
+                            personalRecordResult?.isNewRepRecord == true
+
+                /*
+                 * If this final set created a PR,
+                 * stay on the current exercise until
+                 * the user presses Continue.
+                 */
+                if (hasNewPersonalRecord) {
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            completedSets = updatedCompletedSets,
+                            currentWeight = "",
+                            currentReps = "",
+                            isResting = false,
+                            restSecondsRemaining = 0,
+
+                            pendingNextExerciseIndex =
+                                nextExerciseIndex,
+
+                            pendingWorkoutCompletion = false,
+                            isWorkoutComplete = false
+                        )
+
+                    return@launch
+                }
+
+                /*
+                 * No PR.
+                 * Move immediately to the next exercise.
+                 */
 
                 val nextExerciseId =
                     currentState.exerciseIds
                         .getOrNull(nextExerciseIndex)
 
-                _uiState.value = currentState.copy(
-                    completedSets = updatedCompletedSets,
-                    currentExerciseIndex = nextExerciseIndex,
-                    currentSet = 1,
-                    currentWeight = "",
-                    currentReps = "",
-                    isResting = false,
-                    restSecondsRemaining = 0,
-                    completedSetsForCurrentExercise = emptyList(),
-                    previousBestWeight = null,
-                    previousBestReps = null
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        completedSets = updatedCompletedSets,
+                        currentExerciseIndex = nextExerciseIndex,
+                        currentSet = 1,
+                        currentWeight = "",
+                        currentReps = "",
+                        isResting = false,
+                        restSecondsRemaining = 0,
+                        completedSetsForCurrentExercise = emptyList(),
+                        previousBestWeight = null,
+                        previousBestReps = null,
+                        pendingNextExerciseIndex = null
+                    )
 
                 nextExerciseId?.let { exerciseId ->
 
@@ -470,6 +565,129 @@ class ActiveWorkoutViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+
+    fun clearPersonalRecordNotification() {
+
+        val currentState =
+            _uiState.value
+
+        val shouldCompleteWorkout =
+            currentState.pendingWorkoutCompletion
+
+        val nextExerciseIndex =
+            currentState.pendingNextExerciseIndex
+
+        /*
+         * Final workout PR
+         */
+        if (shouldCompleteWorkout) {
+
+            _uiState.value =
+                currentState.copy(
+                    isNewWeightRecord = false,
+                    isNewRepRecord = false,
+
+                    previousRecordWeight = null,
+                    previousRecordWeightReps = null,
+
+                    previousRecordReps = null,
+                    previousRecordRepsWeight = null,
+
+                    newRecordWeight = null,
+                    newRecordReps = null,
+
+                    pendingWorkoutCompletion = false,
+                    pendingNextExerciseIndex = null,
+
+                    isWorkoutComplete = true
+                )
+
+            return
+        }
+
+        /*
+         * Final set of an exercise PR.
+         * Continue to the next exercise.
+         */
+        if (nextExerciseIndex != null) {
+
+            val nextExerciseId =
+                currentState.exerciseIds
+                    .getOrNull(nextExerciseIndex)
+
+            _uiState.value =
+                currentState.copy(
+                    isNewWeightRecord = false,
+                    isNewRepRecord = false,
+
+                    previousRecordWeight = null,
+                    previousRecordWeightReps = null,
+
+                    previousRecordReps = null,
+                    previousRecordRepsWeight = null,
+
+                    newRecordWeight = null,
+                    newRecordReps = null,
+
+                    pendingWorkoutCompletion = false,
+                    pendingNextExerciseIndex = null,
+
+                    currentExerciseIndex =
+                        nextExerciseIndex,
+
+                    currentSet = 1,
+                    currentWeight = "",
+                    currentReps = "",
+
+                    completedSetsForCurrentExercise =
+                        emptyList(),
+
+                    previousBestWeight = null,
+                    previousBestReps = null,
+
+                    isResting = false,
+                    restSecondsRemaining = 0
+                )
+
+            nextExerciseId?.let { exerciseId ->
+
+                observeSetsForCurrentExercise(
+                    exerciseId
+                )
+
+                currentState.exerciseNames
+                    .getOrNull(nextExerciseIndex)
+                    ?.let { exerciseName ->
+
+                        loadPreviousBest(
+                            exerciseId = exerciseId,
+                            exerciseName = exerciseName
+                        )
+                    }
+            }
+
+            return
+        }
+
+        /*
+         * Normal PR during an exercise.
+         */
+        _uiState.value =
+            currentState.copy(
+                isNewWeightRecord = false,
+                isNewRepRecord = false,
+
+                previousRecordWeight = null,
+                previousRecordWeightReps = null,
+
+                previousRecordReps = null,
+                previousRecordRepsWeight = null,
+
+                newRecordWeight = null,
+                newRecordReps = null
+            )
     }
 
     fun finishWorkout() {

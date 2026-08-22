@@ -23,4 +23,19 @@ data class ActiveWorkoutUiState(
 
     val previousBestWeight: Double? = null,
     val previousBestReps: Int? = null,
+
+    val isNewWeightRecord: Boolean = false,
+    val isNewRepRecord: Boolean = false,
+
+    val previousRecordWeight: Double? = null,
+    val previousRecordWeightReps: Int? = null,
+
+    val previousRecordReps: Int? = null,
+    val previousRecordRepsWeight: Double? = null,
+
+    val newRecordWeight: Double? = null,
+    val newRecordReps: Int? = null,
+
+    val pendingWorkoutCompletion: Boolean = false,
+    val pendingNextExerciseIndex: Int? = null
     )
