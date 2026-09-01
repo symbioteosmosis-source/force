@@ -13,6 +13,9 @@ import com.ngedo.force.data.local.entity.WorkoutExerciseEntity
 import com.ngedo.force.data.local.entity.WorkoutSessionEntity
 import com.ngedo.force.data.local.entity.WorkoutSetEntity
 import com.ngedo.force.data.local.entity.NutritionGoalEntity
+import com.ngedo.force.data.local.dao.UserProfileDao
+import com.ngedo.force.data.local.entity.UserProfileEntity
+
 
 @Database(
     entities = [
@@ -21,9 +24,11 @@ import com.ngedo.force.data.local.entity.NutritionGoalEntity
         WorkoutExerciseEntity::class,
         WorkoutSetEntity::class,
         NutritionEntryEntity::class,
-        NutritionGoalEntity::class
+        NutritionGoalEntity::class,
+        UserProfileEntity::class
+
     ],
-    version = 4,
+    version = 8,
     exportSchema = true
 )
 abstract class ForceDatabase : RoomDatabase() {
@@ -37,4 +42,6 @@ abstract class ForceDatabase : RoomDatabase() {
     abstract fun workoutSetDao(): WorkoutSetDao
 
     abstract fun nutritionDao(): NutritionDao
+
+    abstract fun userProfileDao(): UserProfileDao
 }

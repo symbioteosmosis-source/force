@@ -18,6 +18,9 @@ import com.ngedo.force.data.local.dao.NutritionDao
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.ngedo.force.data.local.repository.NutritionRepository
+import com.ngedo.force.data.local.dao.UserProfileDao
+import com.ngedo.force.data.local.repository.UserProfileRepository
+
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -72,6 +75,78 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_4_5 =
+        object : Migration(4, 5) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS user_profile (
+                    id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    weightKg REAL NOT NULL,
+                    heightCm REAL NOT NULL,
+                    trainingGoal TEXT NOT NULL,
+                    preferredUnits TEXT NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    PRIMARY KEY(id)
+                )
+                """.trimIndent()
+                )
+            }
+        }
+
+    private val MIGRATION_5_6 =
+        object : Migration(5, 6) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                ALTER TABLE user_profile
+                ADD COLUMN age INTEGER NOT NULL DEFAULT 18
+                """.trimIndent()
+                )
+            }
+        }
+
+    private val MIGRATION_6_7 =
+        object : Migration(6, 7) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                ALTER TABLE user_profile
+                ADD COLUMN sex TEXT NOT NULL DEFAULT 'Male'
+                """.trimIndent()
+                )
+            }
+        }
+
+    private val MIGRATION_7_8 =
+        object : Migration(7, 8) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                ALTER TABLE user_profile
+                ADD COLUMN activityLevel TEXT NOT NULL DEFAULT 'Moderately Active'
+                """.trimIndent()
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -84,9 +159,31 @@ object DatabaseModule {
         )
             .addMigrations(
                 MIGRATION_2_3,
-                MIGRATION_3_4
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_6_7,
+                MIGRATION_7_8
             )
             .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserProfileRepository(
+        userProfileDao: UserProfileDao
+    ): UserProfileRepository {
+
+        return UserProfileRepository(
+            userProfileDao = userProfileDao
+        )
+    }
+
+    @Provides
+    fun provideUserProfileDao(
+        database: ForceDatabase
+    ): UserProfileDao {
+        return database.userProfileDao()
     }
 
     @Provides
