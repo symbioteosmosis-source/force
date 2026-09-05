@@ -70,6 +70,50 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
+    private fun loadTrainingRecommendation(
+        exerciseId: Long,
+        exerciseName: String,
+        currentSet: Int,
+        totalSets: Int,
+        currentSessionWeight: Double? = null,
+        currentSessionReps: Int? = null
+    ) {
+        viewModelScope.launch {
+
+            val previousBest =
+                workoutSessionRepository.getPreviousBestSetWithDate(
+                    exerciseName = exerciseName,
+                    currentExerciseId = exerciseId
+                )
+
+            val mostRecent =
+                workoutSessionRepository.getMostRecentPerformance(
+                    exerciseName = exerciseName,
+                    currentExerciseId = exerciseId
+                )
+
+            val recommendation =
+                TrainingRecommendationCalculator.calculate(
+                    previousBestWeight = previousBest?.weight,
+                    previousBestReps = previousBest?.reps,
+                    mostRecentWeight = mostRecent?.weight,
+                    mostRecentReps = mostRecent?.reps,
+                    lastPerformedAt = mostRecent?.performedAt,
+                    currentSet = currentSet,
+                    totalSets = totalSets,
+                    currentSessionWeight =
+                        currentSessionWeight,
+                    currentSessionReps =
+                        currentSessionReps
+                )
+
+            _uiState.value =
+                _uiState.value.copy(
+                    trainingRecommendation = recommendation
+                )
+        }
+    }
+
     private var restTimerJob: Job? = null
     fun updateCurrentWeight(weight: String) {
         _uiState.value = _uiState.value.copy(
@@ -84,7 +128,8 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun startWorkout(
-        exerciseNames: List<String>
+        exerciseNames: List<String>,
+        totalSets: Int
     ) {
         restTimerJob?.cancel()
 
@@ -129,6 +174,13 @@ class ActiveWorkoutViewModel @Inject constructor(
                     exerciseId = exerciseId,
                     exerciseName = exerciseNames.first()
                 )
+
+                loadTrainingRecommendation(
+                    exerciseId = exerciseId,
+                    exerciseName = exerciseNames.first(),
+                    currentSet = 1,
+                    totalSets = totalSets
+                )
             }
         }
     }
@@ -136,7 +188,8 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun completeSet(
         totalSets: Int,
         totalExercises: Int,
-        restSeconds: Int
+        restSeconds: Int,
+        nextExerciseTotalSets: Int
     ) {
         val currentState = _uiState.value
 
@@ -340,6 +393,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                             pendingNextExerciseIndex =
                                 nextExerciseIndex,
 
+                            pendingNextExerciseTotalSets =
+                                nextExerciseTotalSets,
+
                             pendingWorkoutCompletion = false,
                             isWorkoutComplete = false
                         )
@@ -368,6 +424,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                         completedSetsForCurrentExercise = emptyList(),
                         previousBestWeight = null,
                         previousBestReps = null,
+                        trainingRecommendation = null,
                         pendingNextExerciseIndex = null
                     )
 
@@ -385,10 +442,30 @@ class ActiveWorkoutViewModel @Inject constructor(
                                 exerciseId = exerciseId,
                                 exerciseName = exerciseName
                             )
+
+                            loadTrainingRecommendation(
+                                exerciseId = exerciseId,
+                                exerciseName = exerciseName,
+                                currentSet = 1,
+                                totalSets = nextExerciseTotalSets
+                            )
                         }
                 }
 
                 return@launch
+            }
+
+            exerciseName?.let { name ->
+                loadTrainingRecommendation(
+                    exerciseId = exerciseId,
+                    exerciseName = name,
+                    currentSet = currentState.currentSet + 1,
+                    totalSets = totalSets,
+                    currentSessionWeight =
+                        weight.takeIf { it > 0.0 },
+                    currentSessionReps =
+                        reps.takeIf { it > 0 }
+                )
             }
 
             /*
@@ -473,7 +550,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun nextExercise(totalExercises: Int) {
+    fun nextExercise(
+        totalExercises: Int,
+        nextExerciseTotalSets: Int
+    ) {
         val currentState = _uiState.value
 
         if (currentState.isResting) {
@@ -546,7 +626,8 @@ class ActiveWorkoutViewModel @Inject constructor(
             restSecondsRemaining = 0,
             completedSetsForCurrentExercise = emptyList(),
             previousBestWeight = null,
-            previousBestReps = null
+            previousBestReps = null,
+            trainingRecommendation = null
         )
 
         nextExerciseId?.let { exerciseId ->
@@ -563,6 +644,13 @@ class ActiveWorkoutViewModel @Inject constructor(
                         exerciseId = exerciseId,
                         exerciseName = exerciseName
                     )
+
+                    loadTrainingRecommendation(
+                        exerciseId = exerciseId,
+                        exerciseName = exerciseName,
+                        currentSet = 1,
+                        totalSets = nextExerciseTotalSets
+                    )
                 }
         }
     }
@@ -578,6 +666,9 @@ class ActiveWorkoutViewModel @Inject constructor(
 
         val nextExerciseIndex =
             currentState.pendingNextExerciseIndex
+
+        val nextExerciseTotalSets =
+            currentState.pendingNextExerciseTotalSets
 
         /*
          * Final workout PR
@@ -600,6 +691,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                     pendingWorkoutCompletion = false,
                     pendingNextExerciseIndex = null,
+
 
                     isWorkoutComplete = true
                 )
@@ -633,6 +725,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                     pendingWorkoutCompletion = false,
                     pendingNextExerciseIndex = null,
+                    pendingNextExerciseTotalSets = null,
 
                     currentExerciseIndex =
                         nextExerciseIndex,
@@ -646,6 +739,7 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                     previousBestWeight = null,
                     previousBestReps = null,
+                    trainingRecommendation = null,
 
                     isResting = false,
                     restSecondsRemaining = 0
@@ -664,6 +758,13 @@ class ActiveWorkoutViewModel @Inject constructor(
                         loadPreviousBest(
                             exerciseId = exerciseId,
                             exerciseName = exerciseName
+                        )
+
+                        loadTrainingRecommendation(
+                            exerciseId = exerciseId,
+                            exerciseName = exerciseName,
+                            currentSet = 1,
+                            totalSets = nextExerciseTotalSets ?: 1
                         )
                     }
             }

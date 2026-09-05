@@ -6,6 +6,7 @@ import androidx.room.Query
 import com.ngedo.force.data.local.entity.WorkoutSetEntity
 import com.ngedo.force.data.local.model.ExercisePersonalRecord
 import kotlinx.coroutines.flow.Flow
+import com.ngedo.force.data.local.model.ExerciseHistoricalSet
 
 @Dao
 interface WorkoutSetDao {
@@ -311,4 +312,77 @@ interface WorkoutSetDao {
     suspend fun getPreviousHighestRepSet(
         exerciseName: String
     ): WorkoutSetEntity?
+
+
+    /*
+ * =========================================================
+ * PREVIOUS BEST SET WITH DATE
+ * =========================================================
+ *
+ * Returns the all-time best historical set BEFORE
+ * the current exercise, including when it happened.
+ */
+    @Query(
+        """
+    SELECT
+        ws.weight AS weight,
+        ws.reps AS reps,
+        s.startedAt AS performedAt
+    FROM workout_sets ws
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+    INNER JOIN workout_sessions s
+        ON we.sessionId = s.id
+    WHERE we.exerciseName = :exerciseName
+      AND we.id != :currentExerciseId
+      AND ws.weight > 0
+      AND ws.reps > 0
+    ORDER BY
+        ws.weight DESC,
+        ws.reps DESC,
+        s.startedAt DESC
+    LIMIT 1
+    """
+    )
+    suspend fun getPreviousBestSetWithDate(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): ExerciseHistoricalSet?
+
+    /*
+ * =========================================================
+ * MOST RECENT PERFORMANCE
+ * =========================================================
+ *
+ * Returns the latest valid historical working set
+ * from the most recently trained session.
+ *
+ * Current exercise is excluded so today's sets
+ * cannot affect return-after-break calculations.
+ */
+    @Query(
+        """
+    SELECT
+        ws.weight AS weight,
+        ws.reps AS reps,
+        s.startedAt AS performedAt
+    FROM workout_sets ws
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+    INNER JOIN workout_sessions s
+        ON we.sessionId = s.id
+    WHERE we.exerciseName = :exerciseName
+      AND we.id != :currentExerciseId
+      AND ws.weight > 0
+      AND ws.reps > 0
+    ORDER BY
+        s.startedAt DESC,
+        ws.setNumber DESC
+    LIMIT 1
+    """
+    )
+    suspend fun getMostRecentPerformance(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): ExerciseHistoricalSet?
 }

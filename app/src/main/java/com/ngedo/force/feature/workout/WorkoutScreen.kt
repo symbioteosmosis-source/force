@@ -38,6 +38,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 
 private data class WorkoutExercise(
     val name: String,
@@ -161,10 +163,17 @@ fun WorkoutScreen(
                             uiState.currentExerciseIndex
                         ]
 
+                    val nextExercise =
+                        todaysWorkout.getOrNull(
+                            uiState.currentExerciseIndex + 1
+                        )
+
                     workoutViewModel.completeSet(
                         totalSets = exercise.sets,
                         totalExercises = todaysWorkout.size,
-                        restSeconds = exercise.restSeconds
+                        restSeconds = exercise.restSeconds,
+                        nextExerciseTotalSets =
+                            nextExercise?.sets ?: 1
                     )
                 },
 
@@ -182,8 +191,16 @@ fun WorkoutScreen(
                 },
 
                 onNextExercise = {
+
+                    val nextExercise =
+                        todaysWorkout.getOrNull(
+                            uiState.currentExerciseIndex + 1
+                        )
+
                     workoutViewModel.nextExercise(
-                        todaysWorkout.size
+                        totalExercises = todaysWorkout.size,
+                        nextExerciseTotalSets =
+                            nextExercise?.sets ?: 1
                     )
                 }
             )
@@ -220,7 +237,8 @@ fun WorkoutScreen(
                     workoutViewModel.startWorkout(
                         exerciseNames = todaysWorkout.map {
                             it.name
-                        }
+                        },
+                        totalSets = todaysWorkout.firstOrNull()?.sets ?: 1
                     )
                 }
             )
@@ -823,6 +841,18 @@ private fun ActiveWorkoutContent(
                 Spacer(
                     modifier = Modifier.height(16.dp)
                 )
+
+                uiState.trainingRecommendation?.let { recommendation ->
+
+                    TrainingRecommendationCard(
+                        recommendation = recommendation,
+                        currentSet = uiState.currentSet
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+                }
 
                 /*
                  * -------------------------------------------------
@@ -1982,6 +2012,168 @@ private fun formatRestTime(
         minutes,
         remainingSeconds
     )
+}
+
+@Composable
+private fun TrainingRecommendationCard(
+    recommendation: TrainingRecommendation,
+    currentSet: Int
+) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = ForceColors.Surface,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .padding(
+                horizontal = 14.dp,
+                vertical = 14.dp
+            )
+    ) {
+
+        /*
+         * Header
+         */
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Column {
+
+                Text(
+                    text = "FORCE RECOMMENDS",
+                    color = ForceColors.Primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(2.dp)
+                )
+
+                Text(
+                    text = when (
+                        recommendation.recommendationType
+                    ) {
+                        TrainingRecommendationType.RAMP_UP ->
+                            "Warm-up / Ramp-up"
+
+                        TrainingRecommendationType.RETURNING_AFTER_BREAK ->
+                            "Return Session"
+
+                        TrainingRecommendationType.MATCH_PREVIOUS ->
+                            "Working Set"
+
+                        TrainingRecommendationType.PROGRESSION ->
+                            "Progression"
+
+                        TrainingRecommendationType.REDUCE_LOAD ->
+                            "Reduce Load"
+
+                        TrainingRecommendationType.NO_HISTORY ->
+                            "Starting Point"
+                    },
+                    color = ForceColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
+
+        /*
+         * Recommendation numbers
+         */
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text =
+                        recommendation.suggestedWeight
+                            ?.let { weight ->
+                                "${formatRecommendedWeight(weight)} kg"
+                            }
+                            ?: "—",
+                    color = ForceColors.Primary,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Suggested Weight",
+                    color = ForceColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text =
+                        recommendation.suggestedReps
+                            ?.let { reps ->
+
+                                if (currentSet == 1) {
+                                    "$reps reps"
+                                } else {
+                                    "$reps+ reps"
+                                }
+                            }
+                            ?: "—",
+                    color = ForceColors.Primary,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Suggested Reps",
+                    color = ForceColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
+
+        /*
+         * Explanation
+         */
+
+        Text(
+            text = recommendation.reason,
+            color = ForceColors.TextSecondary,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+private fun formatRecommendedWeight(
+    weight: Double
+): String {
+
+    return if (weight % 1.0 == 0.0) {
+        weight.toInt().toString()
+    } else {
+        weight.toString()
+    }
 }
 
 private fun formatPrSet(

@@ -9,6 +9,7 @@ import com.ngedo.force.data.local.entity.WorkoutSetEntity
 import kotlinx.coroutines.flow.Flow
 import com.ngedo.force.data.local.model.ExercisePersonalRecord
 import com.ngedo.force.data.local.model.PersonalRecordResult
+import com.ngedo.force.data.local.model.ExerciseHistoricalSet
 
 class WorkoutSessionRepository(
     private val workoutSessionDao: WorkoutSessionDao,
@@ -273,6 +274,28 @@ class WorkoutSessionRepository(
 
             previousWeightAtHighestReps =
                 previousBestRepSet?.weight
+        )
+    }
+
+    suspend fun getPreviousBestSetWithDate(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): ExerciseHistoricalSet? {
+
+        return workoutSetDao.getPreviousBestSetWithDate(
+            exerciseName = exerciseName,
+            currentExerciseId = currentExerciseId
+        )
+    }
+
+    suspend fun getMostRecentPerformance(
+        exerciseName: String,
+        currentExerciseId: Long
+    ): ExerciseHistoricalSet? {
+
+        return workoutSetDao.getMostRecentPerformance(
+            exerciseName = exerciseName,
+            currentExerciseId = currentExerciseId
         )
     }
 
