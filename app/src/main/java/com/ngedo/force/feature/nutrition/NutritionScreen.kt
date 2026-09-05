@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material3.LinearProgressIndicator
 import java.text.SimpleDateFormat
 import java.util.Date
+import androidx.compose.foundation.lazy.items
 
 @Composable
 fun NutritionScreen(
@@ -72,6 +73,10 @@ fun NutritionScreen(
 
             onFoodNameChange = {
                 viewModel.updateFoodName(it)
+            },
+
+            onSavedFoodSelected = { food ->
+                viewModel.selectSavedFood(food)
             },
 
             onCaloriesChange = {
@@ -163,8 +168,14 @@ fun NutritionScreen(
                 horizontal = 20.dp,
                 vertical = 16.dp
             ),
+
+        contentPadding =
+            PaddingValues(
+                bottom = 110.dp
+            ),
+
         verticalArrangement =
-            Arrangement.spacedBy(16.dp)
+            Arrangement.spacedBy(0.dp)
     ) {
 
         /*
@@ -247,13 +258,8 @@ fun NutritionScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
-                    .verticalScroll(
-                        rememberScrollState()
-                    )
-                    .imePadding()
                     .padding(
-                        bottom = 24.dp
+                        bottom = 8.dp
                     ),
                 verticalArrangement =
                     Arrangement.spacedBy(10.dp)
@@ -322,29 +328,30 @@ fun NutritionScreen(
                     target = uiState.fatTarget,
                     unit = "g"
                 )
+                Spacer(
+                    modifier =
+                        Modifier.height(12.dp)
+                )
             }
         }
 
 
         /*
-         * -------------------------------------------------
-         * BREAKFAST
-         * -------------------------------------------------
-         */
+ * -------------------------------------------------
+ * BREAKFAST
+ * -------------------------------------------------
+ */
 
-        item {
-
-            MealSection(
-                title = "Breakfast",
-                uiState = uiState,
-                onEditEntry = {
-                    viewModel.startEditingFood(it)
-                },
-                onDeleteEntry = {
-                    viewModel.requestDeleteFood(it)
-                }
-            )
-        }
+        nutritionMealItems(
+            title = "Breakfast",
+            uiState = uiState,
+            onEditEntry = {
+                viewModel.startEditingFood(it)
+            },
+            onDeleteEntry = {
+                viewModel.requestDeleteFood(it)
+            }
+        )
 
 
         /*
@@ -353,19 +360,16 @@ fun NutritionScreen(
          * -------------------------------------------------
          */
 
-        item {
-
-            MealSection(
-                title = "Lunch",
-                uiState = uiState,
-                onEditEntry = {
-                    viewModel.startEditingFood(it)
-                },
-                onDeleteEntry = {
-                    viewModel.requestDeleteFood(it)
-                }
-            )
-        }
+        nutritionMealItems(
+            title = "Lunch",
+            uiState = uiState,
+            onEditEntry = {
+                viewModel.startEditingFood(it)
+            },
+            onDeleteEntry = {
+                viewModel.requestDeleteFood(it)
+            }
+        )
 
 
         /*
@@ -374,19 +378,16 @@ fun NutritionScreen(
          * -------------------------------------------------
          */
 
-        item {
-
-            MealSection(
-                title = "Dinner",
-                uiState = uiState,
-                onEditEntry = {
-                    viewModel.startEditingFood(it)
-                },
-                onDeleteEntry = {
-                    viewModel.requestDeleteFood(it)
-                }
-            )
-        }
+        nutritionMealItems(
+            title = "Dinner",
+            uiState = uiState,
+            onEditEntry = {
+                viewModel.startEditingFood(it)
+            },
+            onDeleteEntry = {
+                viewModel.requestDeleteFood(it)
+            }
+        )
 
 
         /*
@@ -395,19 +396,16 @@ fun NutritionScreen(
          * -------------------------------------------------
          */
 
-        item {
-
-            MealSection(
-                title = "Snack",
-                uiState = uiState,
-                onEditEntry = {
-                    viewModel.startEditingFood(it)
-                },
-                onDeleteEntry = {
-                    viewModel.requestDeleteFood(it)
-                }
-            )
-        }
+        nutritionMealItems(
+            title = "Snack",
+            uiState = uiState,
+            onEditEntry = {
+                viewModel.startEditingFood(it)
+            },
+            onDeleteEntry = {
+                viewModel.requestDeleteFood(it)
+            }
+        )
 
 
         /*
@@ -609,6 +607,7 @@ private fun AddFoodDialog(
     onDismiss: () -> Unit,
     onMealTypeChange: (String) -> Unit,
     onFoodNameChange: (String) -> Unit,
+    onSavedFoodSelected: (com.ngedo.force.data.local.entity.SavedFoodEntity) -> Unit,
     onCaloriesChange: (String) -> Unit,
     onProteinChange: (String) -> Unit,
     onCarbsChange: (String) -> Unit,
@@ -738,8 +737,10 @@ private fun AddFoodDialog(
 
 
                 /*
-                 * FOOD NAME
-                 */
+  * -------------------------------------------------
+  * FOOD NAME + REMEMBERED FOOD SUGGESTIONS
+  * -------------------------------------------------
+  */
 
                 OutlinedTextField(
                     value =
@@ -759,6 +760,97 @@ private fun AddFoodDialog(
 
                     singleLine = true
                 )
+
+
+                /*
+                 * -------------------------------------------------
+                 * SAVED FOOD SUGGESTIONS
+                 * -------------------------------------------------
+                 */
+
+                if (
+                    uiState.savedFoodSuggestions.isNotEmpty()
+                ) {
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = ForceColors.Surface,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(
+                                vertical = 4.dp
+                            )
+                    ) {
+
+                        Text(
+                            text =
+                                if (uiState.foodName.isBlank()) {
+                                    "Recently used"
+                                } else {
+                                    "Suggestions"
+                                },
+                            color = ForceColors.TextSecondary,
+                            style =
+                                MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(
+                                horizontal = 12.dp,
+                                vertical = 6.dp
+                            )
+                        )
+
+                        uiState.savedFoodSuggestions
+                            .forEach { food ->
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+
+                                            keyboardController?.hide()
+
+                                            onSavedFoodSelected(
+                                                food
+                                            )
+                                        }
+                                        .padding(
+                                            horizontal = 12.dp,
+                                            vertical = 10.dp
+                                        )
+                                ) {
+
+                                    Text(
+                                        text = food.foodName,
+                                        color =
+                                            ForceColors.TextPrimary,
+                                        style =
+                                            MaterialTheme.typography.bodyMedium,
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+
+                                    Spacer(
+                                        modifier =
+                                            Modifier.height(3.dp)
+                                    )
+
+                                    Text(
+                                        text =
+                                            "${formatNumber(food.calories)} kcal" +
+                                                    " • P ${formatNumber(food.proteinGrams)}g" +
+                                                    " • C ${formatNumber(food.carbsGrams)}g" +
+                                                    " • F ${formatNumber(food.fatGrams)}g",
+                                        color =
+                                            ForceColors.TextSecondary,
+                                        style =
+                                            MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                    }
+                }
 
 
                 /*
@@ -1053,7 +1145,10 @@ private fun MacroProgressRow(
                 .fillMaxWidth()
                 .height(6.dp),
             color = ForceColors.Primary,
-            trackColor = ForceColors.Background
+            trackColor =
+                ForceColors.Primary.copy(
+                    alpha = 0.18f
+                )
         )
 
         Text(
@@ -1070,9 +1165,7 @@ private fun MacroProgressRow(
     }
 }
 
-
-@Composable
-private fun MealSection(
+private fun androidx.compose.foundation.lazy.LazyListScope.nutritionMealItems(
     title: String,
     uiState: NutritionUiState,
     onEditEntry: (NutritionEntryEntity) -> Unit,
@@ -1087,97 +1180,295 @@ private fun MealSection(
             )
         }
 
+    /*
+     * Meal header
+     */
+    item(
+        key = "meal_header_$title"
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = ForceColors.Surface,
+                    shape = RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp
+                    )
+                )
+        ) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 16.dp,
+                        vertical = 12.dp
+                    ),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Row(
+                    verticalAlignment =
+                        Alignment.CenterVertically,
+                    horizontalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    Text(
+                        text =
+                            when (title) {
+                                "Breakfast" -> "☀️"
+                                "Lunch" -> "🍴"
+                                "Dinner" -> "🍽️"
+                                "Snack" -> "🍎"
+                                else -> "🍽️"
+                            },
+                        style =
+                            MaterialTheme.typography.titleMedium
+                    )
+
+                    Text(
+                        text = title,
+                        color =
+                            ForceColors.TextPrimary,
+                        style =
+                            MaterialTheme.typography.titleMedium,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text =
+                        if (mealEntries.size == 1) {
+                            "1 item"
+                        } else {
+                            "${mealEntries.size} items"
+                        },
+                    color =
+                        ForceColors.TextSecondary,
+                    style =
+                        MaterialTheme.typography.labelMedium
+                )
+            }
+
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        ForceColors.TextSecondary.copy(
+                            alpha = 0.12f
+                        )
+                    )
+            )
+        }
+    }
+
+
+    /*
+     * Individual food rows
+     *
+     * Every food is now its own LazyColumn item.
+     */
+    items(
+        items = mealEntries,
+        key = { entry ->
+            "nutrition_${title}_${entry.id}"
+        }
+    ) { entry ->
+
+        NutritionFoodRow(
+            entry = entry,
+            onEditEntry = onEditEntry,
+            onDeleteEntry = onDeleteEntry
+        )
+    }
+
+
+    /*
+     * Bottom of meal card
+     */
+    if (mealEntries.isNotEmpty()) {
+
+        item(
+            key = "meal_footer_$title"
+        ) {
+
+            Column {
+
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .background(
+                            color = ForceColors.Surface,
+                            shape = RoundedCornerShape(
+                                bottomStart = 16.dp,
+                                bottomEnd = 16.dp
+                            )
+                        )
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(16.dp)
+                )
+            }
+        }
+
+    } else {
+
+        item(
+            key = "meal_empty_footer_$title"
+        ) {
+
+            Column {
+
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(18.dp)
+                        .background(
+                            color = ForceColors.Surface,
+                            shape = RoundedCornerShape(
+                                bottomStart = 16.dp,
+                                bottomEnd = 16.dp
+                            )
+                        )
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.height(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NutritionFoodRow(
+    entry: NutritionEntryEntity,
+    onEditEntry: (NutritionEntryEntity) -> Unit,
+    onDeleteEntry: (NutritionEntryEntity) -> Unit
+) {
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = ForceColors.Surface,
-                shape = RoundedCornerShape(16.dp)
+                ForceColors.Surface
             )
-            .padding(16.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(10.dp)
     ) {
 
-        Text(
-            text = title,
-            color = ForceColors.TextPrimary,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = 10.dp
+                ),
+            horizontalArrangement =
+                Arrangement.SpaceBetween,
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
 
-        if (mealEntries.isEmpty()) {
+            /*
+             * FOOD INFORMATION
+             */
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(
+                        end = 8.dp
+                    )
+            ) {
 
-            Text(
-                text = "No food added yet.",
-                color = ForceColors.TextSecondary,
-                style = MaterialTheme.typography.bodyMedium
-            )
+                Text(
+                    text = entry.foodName,
+                    color =
+                        ForceColors.TextPrimary,
+                    style =
+                        MaterialTheme.typography.bodyLarge,
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
 
-        } else {
+                Spacer(
+                    modifier =
+                        Modifier.height(3.dp)
+                )
 
-            mealEntries.forEach { entry ->
+                Text(
+                    text =
+                        "${formatNumber(entry.calories)} kcal" +
+                                "  •  " +
+                                "${formatNumber(entry.proteinGrams)} g protein",
+                    color =
+                        ForceColors.TextSecondary,
+                    style =
+                        MaterialTheme.typography.bodySmall
+                )
+            }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+
+            /*
+             * ACTIONS
+             */
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                TextButton(
+                    onClick = {
+                        onEditEntry(entry)
+                    },
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = 8.dp,
+                            vertical = 4.dp
+                        )
                 ) {
 
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Text(
+                        text = "Edit",
+                        color =
+                            ForceColors.Primary,
+                        style =
+                            MaterialTheme.typography.labelLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                }
 
-                        Text(
-                            text = entry.foodName,
-                            color = ForceColors.TextPrimary,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
+                TextButton(
+                    onClick = {
+                        onDeleteEntry(entry)
+                    },
+                    contentPadding =
+                        PaddingValues(
+                            horizontal = 8.dp,
+                            vertical = 4.dp
                         )
+                ) {
 
-                        Spacer(
-                            modifier = Modifier.height(2.dp)
-                        )
-
-                        Text(
-                            text =
-                                "${formatNumber(entry.calories)} kcal" +
-                                        " • " +
-                                        "${formatNumber(entry.proteinGrams)} g protein",
-                            color = ForceColors.TextSecondary,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        TextButton(
-                            onClick = {
-                                onEditEntry(entry)
-                            }
-                        ) {
-                            Text(
-                                text = "Edit",
-                                color = ForceColors.Primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        TextButton(
-                            onClick = {
-                                onDeleteEntry(entry)
-                            }
-                        ) {
-                            Text(
-                                text = "Delete",
-                                color = ForceColors.TextSecondary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Delete",
+                        color =
+                            ForceColors.TextSecondary,
+                        style =
+                            MaterialTheme.typography.labelLarge,
+                        fontWeight =
+                            FontWeight.Medium
+                    )
                 }
             }
         }

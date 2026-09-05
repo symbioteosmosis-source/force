@@ -4,6 +4,7 @@ import com.ngedo.force.data.local.dao.NutritionDao
 import com.ngedo.force.data.local.entity.NutritionEntryEntity
 import kotlinx.coroutines.flow.Flow
 import com.ngedo.force.data.local.entity.NutritionGoalEntity
+import com.ngedo.force.data.local.entity.SavedFoodEntity
 
 class NutritionRepository(
     private val nutritionDao: NutritionDao
@@ -50,18 +51,70 @@ class NutritionRepository(
         fatGrams: Double
     ): Long {
 
-        return nutritionDao.insertEntry(
-            NutritionEntryEntity(
-                date = date,
-                mealType = mealType,
-                foodName = foodName,
-                calories = calories,
-                proteinGrams = proteinGrams,
-                carbsGrams = carbsGrams,
-                fatGrams = fatGrams,
-                createdAt = System.currentTimeMillis()
+        val cleanFoodName =
+            foodName.trim()
+
+        val normalizedName =
+            normalizeFoodName(
+                cleanFoodName
             )
-        )
+
+        val currentTime =
+            System.currentTimeMillis()
+
+        /*
+         * -------------------------------------------------
+         * SAVE THE DAILY MEAL ENTRY
+         * -------------------------------------------------
+         */
+
+        val entryId =
+            nutritionDao.insertEntry(
+                NutritionEntryEntity(
+                    date = date,
+                    mealType = mealType,
+                    foodName = cleanFoodName,
+                    calories = calories,
+                    proteinGrams = proteinGrams,
+                    carbsGrams = carbsGrams,
+                    fatGrams = fatGrams,
+                    createdAt = currentTime
+                )
+            )
+
+        /*
+         * -------------------------------------------------
+         * REMEMBER THE FOOD
+         * -------------------------------------------------
+         *
+         * Only remember a food when it actually has a name.
+         *
+         * If the food already exists, preserve its database
+         * ID and update its nutrition values.
+         */
+
+        if (normalizedName.isNotBlank()) {
+
+            val existingFood =
+                nutritionDao.getSavedFoodByName(
+                    normalizedName = normalizedName
+                )
+
+            nutritionDao.saveFood(
+                SavedFoodEntity(
+                    id = existingFood?.id ?: 0,
+                    foodName = cleanFoodName,
+                    normalizedName = normalizedName,
+                    calories = calories,
+                    proteinGrams = proteinGrams,
+                    carbsGrams = carbsGrams,
+                    fatGrams = fatGrams,
+                    updatedAt = currentTime
+                )
+            )
+        }
+
+        return entryId
     }
 
     suspend fun deleteEntry(
@@ -146,5 +199,33 @@ class NutritionRepository(
         nutritionDao.updateEntry(
             entry
         )
+    }
+
+    private fun normalizeFoodName(
+        foodName: String
+    ): String {
+
+        return foodName
+            .trim()
+            .lowercase()
+            .replace(
+                Regex("\\s+"),
+                " "
+            )
+    }
+
+    fun searchSavedFoods(
+        query: String
+    ): Flow<List<SavedFoodEntity>> {
+
+        return nutritionDao.searchSavedFoods(
+            query = normalizeFoodName(query)
+        )
+    }
+
+    fun getRecentSavedFoods():
+            Flow<List<SavedFoodEntity>> {
+
+        return nutritionDao.getRecentSavedFoods()
     }
 }

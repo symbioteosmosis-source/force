@@ -147,6 +147,38 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_8_9 =
+        object : Migration(8, 9) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS saved_foods (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    foodName TEXT NOT NULL,
+                    normalizedName TEXT NOT NULL,
+                    calories REAL NOT NULL,
+                    proteinGrams REAL NOT NULL,
+                    carbsGrams REAL NOT NULL,
+                    fatGrams REAL NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE UNIQUE INDEX IF NOT EXISTS
+                index_saved_foods_normalizedName
+                ON saved_foods(normalizedName)
+                """.trimIndent()
+                )
+            }
+        }
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -163,7 +195,8 @@ object DatabaseModule {
                 MIGRATION_4_5,
                 MIGRATION_5_6,
                 MIGRATION_6_7,
-                MIGRATION_7_8
+                MIGRATION_7_8,
+                MIGRATION_8_9
             )
             .build()
     }

@@ -12,8 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-
-
+import com.ngedo.force.data.local.entity.SavedFoodEntity
+import kotlinx.coroutines.delay
 
 data class NutritionUiState(
     val entries: List<NutritionEntryEntity> = emptyList(),
@@ -36,6 +36,8 @@ data class NutritionUiState(
     val proteinInput: String = "",
     val carbsInput: String = "",
     val fatInput: String = "",
+
+    val savedFoodSuggestions: List<SavedFoodEntity> = emptyList(),
 
     val isGoalEditorVisible: Boolean = false,
 
@@ -72,6 +74,7 @@ class NutritionViewModel @Inject constructor(
     private var fatJob: Job? = null
 
     private var nutritionGoalJob: Job? = null
+    private var savedFoodSearchJob: Job? = null
 
     init {
         observeSelectedDay()
@@ -414,6 +417,7 @@ class NutritionViewModel @Inject constructor(
         carbsJob?.cancel()
         fatJob?.cancel()
         nutritionGoalJob?.cancel()
+        savedFoodSearchJob?.cancel()
 
         super.onCleared()
     }
@@ -427,6 +431,7 @@ class NutritionViewModel @Inject constructor(
 
     fun hideAddFood() {
 
+        savedFoodSearchJob?.cancel()
         _uiState.value =
             _uiState.value.copy(
                 isAddFoodVisible = false,
@@ -436,7 +441,9 @@ class NutritionViewModel @Inject constructor(
                 caloriesInput = "",
                 proteinInput = "",
                 carbsInput = "",
-                fatInput = ""
+                fatInput = "",
+
+                savedFoodSuggestions = emptyList()
             )
     }
     fun updateMealType(
@@ -451,12 +458,109 @@ class NutritionViewModel @Inject constructor(
     fun updateFoodName(
         value: String
     ) {
+
         _uiState.value =
             _uiState.value.copy(
                 foodName = value
             )
+
+        observeSavedFoodSuggestions(
+            query = value
+        )
     }
 
+    private fun observeSavedFoodSuggestions(
+        query: String
+    ) {
+
+        savedFoodSearchJob?.cancel()
+
+        val cleanQuery =
+            query.trim()
+
+        if (
+            cleanQuery.isNotEmpty() &&
+            cleanQuery.length < 2
+        ) {
+
+            _uiState.value =
+                _uiState.value.copy(
+                    savedFoodSuggestions =
+                        emptyList()
+                )
+
+            return
+        }
+
+        savedFoodSearchJob =
+            viewModelScope.launch {
+
+                /*
+                 * Debounce typing.
+                 */
+                if (cleanQuery.isNotEmpty()) {
+                    delay(200)
+                }
+
+                val foodFlow =
+                    if (cleanQuery.isEmpty()) {
+
+                        nutritionRepository
+                            .getRecentSavedFoods()
+
+                    } else {
+
+                        nutritionRepository
+                            .searchSavedFoods(
+                                query = cleanQuery
+                            )
+                    }
+
+                foodFlow.collect { foods ->
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            savedFoodSuggestions = foods
+                        )
+                }
+            }
+    }
+
+    fun selectSavedFood(
+        food: SavedFoodEntity
+    ) {
+
+        savedFoodSearchJob?.cancel()
+
+        _uiState.value =
+            _uiState.value.copy(
+                foodName =
+                    food.foodName,
+
+                caloriesInput =
+                    formatInputNumber(
+                        food.calories
+                    ),
+
+                proteinInput =
+                    formatInputNumber(
+                        food.proteinGrams
+                    ),
+
+                carbsInput =
+                    formatInputNumber(
+                        food.carbsGrams
+                    ),
+
+                fatInput =
+                    formatInputNumber(
+                        food.fatGrams
+                    ),
+
+                savedFoodSuggestions =
+                    emptyList()
+            )
+    }
     fun updateCalories(
         value: String
     ) {
@@ -589,6 +693,8 @@ class NutritionViewModel @Inject constructor(
                     proteinInput = "",
                     carbsInput = "",
                     fatInput = "",
+
+                    savedFoodSuggestions = emptyList(),
 
                     isAddFoodVisible = false
                 )

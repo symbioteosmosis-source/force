@@ -8,6 +8,8 @@ import com.ngedo.force.data.local.entity.NutritionEntryEntity
 import kotlinx.coroutines.flow.Flow
 import androidx.room.Update
 import com.ngedo.force.data.local.entity.NutritionGoalEntity
+import androidx.room.OnConflictStrategy
+import com.ngedo.force.data.local.entity.SavedFoodEntity
 
 @Dao
 interface NutritionDao {
@@ -202,4 +204,93 @@ interface NutritionDao {
     fun getNutritionGoal():
             Flow<NutritionGoalEntity?>
 
+
+    /*
+ * -------------------------------------------------
+ * SAVED / REMEMBERED FOODS
+ * -------------------------------------------------
+ */
+
+    /*
+     * Save a new food or replace the existing food
+     * with the same normalized name.
+     *
+     * Example:
+     *
+     * "Chicken Breast"
+     * "chicken breast"
+     *
+     * both resolve to the same remembered food.
+     */
+    @Insert(
+        onConflict = OnConflictStrategy.REPLACE
+    )
+    suspend fun saveFood(
+        food: SavedFoodEntity
+    ): Long
+
+
+    /*
+     * Find an exact remembered food.
+     *
+     * Used before saving so FORCE can preserve/update
+     * an existing remembered food.
+     */
+    @Query(
+        """
+    SELECT *
+    FROM saved_foods
+    WHERE normalizedName = :normalizedName
+    LIMIT 1
+    """
+    )
+    suspend fun getSavedFoodByName(
+        normalizedName: String
+    ): SavedFoodEntity?
+
+
+    /*
+     * Search remembered foods while the user types.
+     *
+     * Example:
+     *
+     * User types "chi"
+     *
+     * Chicken Breast
+     * Chicken Wrap
+     * Chicken Salad
+     *
+     * Recently updated/used foods appear first.
+     */
+    @Query(
+        """
+    SELECT *
+    FROM saved_foods
+    WHERE normalizedName LIKE '%' || :query || '%'
+    ORDER BY updatedAt DESC
+    LIMIT 8
+    """
+    )
+    fun searchSavedFoods(
+        query: String
+    ): Flow<List<SavedFoodEntity>>
+
+
+    /*
+     * Show recently remembered foods when the food
+     * field is empty.
+     *
+     * This will make frequently/recently used foods
+     * accessible without typing.
+     */
+    @Query(
+        """
+    SELECT *
+    FROM saved_foods
+    ORDER BY updatedAt DESC
+    LIMIT 8
+    """
+    )
+    fun getRecentSavedFoods():
+            Flow<List<SavedFoodEntity>>
 }
