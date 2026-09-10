@@ -292,6 +292,17 @@ fun ForceNavGraph() {
                         navController.navigate(
                             ForceDestination.WorkoutHistory.route
                         )
+                    },
+
+                    onPersonalRecordClick = { sessionId ->
+
+                        navController.navigate(
+                            ForceDestination
+                                .WorkoutHistoryDetail
+                                .createRoute(
+                                    sessionId
+                                )
+                        )
                     }
                 )
             }

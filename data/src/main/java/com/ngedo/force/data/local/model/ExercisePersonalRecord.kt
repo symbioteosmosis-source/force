@@ -5,7 +5,11 @@ data class ExercisePersonalRecord(
 
     val highestWeight: Double?,
     val repsAtHighestWeight: Int?,
+    val highestWeightDate: Long? = null,
+    val highestWeightSessionId: Long? = null,
 
     val highestReps: Int?,
-    val weightAtHighestReps: Double?
+    val weightAtHighestReps: Double?,
+    val highestRepsDate: Long? = null,
+    val highestRepsSessionId: Long? = null
 )

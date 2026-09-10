@@ -56,4 +56,14 @@ interface WorkoutExerciseDao {
     suspend fun markExerciseCompleted(
         exerciseId: Long
     )
+
+    @Query(
+        """
+    DELETE FROM workout_exercises
+    WHERE sessionId = :sessionId
+    """
+    )
+    suspend fun deleteExercisesForSession(
+        sessionId: Long
+    )
 }

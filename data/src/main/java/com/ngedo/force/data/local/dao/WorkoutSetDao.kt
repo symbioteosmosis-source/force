@@ -171,30 +171,54 @@ interface WorkoutSetDao {
 
     @Query(
         """
-        SELECT
-            we.exerciseName AS exerciseName,
-            ws.weight AS highestWeight,
-            ws.reps AS repsAtHighestWeight,
-            NULL AS highestReps,
-            NULL AS weightAtHighestReps
-        FROM workout_sets ws
-        INNER JOIN workout_exercises we
-            ON ws.workoutExerciseId = we.id
-        WHERE ws.id = (
-            SELECT ws2.id
-            FROM workout_sets ws2
-            INNER JOIN workout_exercises we2
-                ON ws2.workoutExerciseId = we2.id
-            WHERE we2.exerciseName = we.exerciseName
-              AND ws2.weight > 0
-            ORDER BY
-                ws2.weight DESC,
-                ws2.reps DESC
-            LIMIT 1
-        )
-        GROUP BY we.exerciseName
-        ORDER BY we.exerciseName ASC
-        """
+    SELECT
+        we.exerciseName AS exerciseName,
+
+        ws.weight AS highestWeight,
+        ws.reps AS repsAtHighestWeight,
+        s.startedAt AS highestWeightDate,
+        s.id AS highestWeightSessionId,
+
+        NULL AS highestReps,
+        NULL AS weightAtHighestReps,
+        NULL AS highestRepsDate,
+        NULL AS highestRepsSessionId
+
+    FROM workout_sets ws
+
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+
+    INNER JOIN workout_sessions s
+        ON we.sessionId = s.id
+
+    WHERE s.isCompleted = 1
+
+      AND ws.id = (
+        SELECT ws2.id
+
+        FROM workout_sets ws2
+
+        INNER JOIN workout_exercises we2
+            ON ws2.workoutExerciseId = we2.id
+
+        INNER JOIN workout_sessions s2
+            ON we2.sessionId = s2.id
+
+        WHERE we2.exerciseName = we.exerciseName
+          AND ws2.weight > 0
+          AND s2.isCompleted = 1
+
+        ORDER BY
+            ws2.weight DESC,
+            ws2.reps DESC,
+            s2.startedAt DESC
+
+        LIMIT 1
+    )
+
+    ORDER BY we.exerciseName ASC
+    """
     )
     suspend fun getHighestWeightRecords():
             List<ExercisePersonalRecord>
@@ -214,30 +238,54 @@ interface WorkoutSetDao {
 
     @Query(
         """
-        SELECT
-            we.exerciseName AS exerciseName,
-            NULL AS highestWeight,
-            NULL AS repsAtHighestWeight,
-            ws.reps AS highestReps,
-            ws.weight AS weightAtHighestReps
-        FROM workout_sets ws
-        INNER JOIN workout_exercises we
-            ON ws.workoutExerciseId = we.id
-        WHERE ws.id = (
-            SELECT ws2.id
-            FROM workout_sets ws2
-            INNER JOIN workout_exercises we2
-                ON ws2.workoutExerciseId = we2.id
-            WHERE we2.exerciseName = we.exerciseName
-              AND ws2.reps > 0
-            ORDER BY
-                ws2.reps DESC,
-                ws2.weight DESC
-            LIMIT 1
-        )
-        GROUP BY we.exerciseName
-        ORDER BY we.exerciseName ASC
-        """
+    SELECT
+        we.exerciseName AS exerciseName,
+
+        NULL AS highestWeight,
+        NULL AS repsAtHighestWeight,
+        NULL AS highestWeightDate,
+        NULL AS highestWeightSessionId,
+
+        ws.reps AS highestReps,
+        ws.weight AS weightAtHighestReps,
+        s.startedAt AS highestRepsDate,
+        s.id AS highestRepsSessionId
+
+    FROM workout_sets ws
+
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+
+    INNER JOIN workout_sessions s
+        ON we.sessionId = s.id
+
+    WHERE s.isCompleted = 1
+
+      AND ws.id = (
+        SELECT ws2.id
+
+        FROM workout_sets ws2
+
+        INNER JOIN workout_exercises we2
+            ON ws2.workoutExerciseId = we2.id
+
+        INNER JOIN workout_sessions s2
+            ON we2.sessionId = s2.id
+
+        WHERE we2.exerciseName = we.exerciseName
+          AND ws2.reps > 0
+          AND s2.isCompleted = 1
+
+        ORDER BY
+            ws2.reps DESC,
+            ws2.weight DESC,
+            s2.startedAt DESC
+
+        LIMIT 1
+    )
+
+    ORDER BY we.exerciseName ASC
+    """
     )
     suspend fun getHighestRepRecords():
             List<ExercisePersonalRecord>
@@ -385,4 +433,18 @@ interface WorkoutSetDao {
         exerciseName: String,
         currentExerciseId: Long
     ): ExerciseHistoricalSet?
+
+    @Query(
+        """
+    DELETE FROM workout_sets
+    WHERE workoutExerciseId IN (
+        SELECT id
+        FROM workout_exercises
+        WHERE sessionId = :sessionId
+    )
+    """
+    )
+    suspend fun deleteSetsForSession(
+        sessionId: Long
+    )
 }

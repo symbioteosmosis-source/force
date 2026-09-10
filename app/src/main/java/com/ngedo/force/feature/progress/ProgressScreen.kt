@@ -26,12 +26,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.ngedo.force.data.local.model.ExercisePersonalRecord
 import com.ngedo.force.designsystem.ForceColors
 import androidx.compose.runtime.LaunchedEffect
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ProgressScreen(
     onWorkoutHistoryClick: () -> Unit,
+    onPersonalRecordClick: (Long) -> Unit = {},
     viewModel: ProgressViewModel = hiltViewModel()
-) {
+){
 
     val uiState by viewModel.uiState.collectAsState()
 
@@ -219,7 +223,19 @@ fun ProgressScreen(
             ) { record ->
 
                 PersonalRecordCard(
-                    record = record
+                    record = record,
+
+                    onHighestWeightClick = {
+                        record.highestWeightSessionId?.let { sessionId ->
+                            onPersonalRecordClick(sessionId)
+                        }
+                    },
+
+                    onHighestRepsClick = {
+                        record.highestRepsSessionId?.let { sessionId ->
+                            onPersonalRecordClick(sessionId)
+                        }
+                    }
                 )
             }
         }
@@ -229,7 +245,9 @@ fun ProgressScreen(
 
 @Composable
 private fun PersonalRecordCard(
-    record: ExercisePersonalRecord
+    record: ExercisePersonalRecord,
+    onHighestWeightClick: () -> Unit,
+    onHighestRepsClick: () -> Unit
 ) {
 
     Column(
@@ -267,7 +285,14 @@ private fun PersonalRecordCard(
                 formatRecord(
                     weight = record.highestWeight,
                     reps = record.repsAtHighestWeight
-                )
+                ),
+            date =
+                formatRecordDate(
+                    record.highestWeightDate
+                ),
+            enabled =
+                record.highestWeightSessionId != null,
+            onClick = onHighestWeightClick
         )
 
 
@@ -281,7 +306,14 @@ private fun PersonalRecordCard(
                 formatRecord(
                     weight = record.weightAtHighestReps,
                     reps = record.highestReps
-                )
+                ),
+            date =
+                formatRecordDate(
+                    record.highestRepsDate
+                ),
+            enabled =
+                record.highestRepsSessionId != null,
+            onClick = onHighestRepsClick
         )
     }
 }
@@ -290,11 +322,23 @@ private fun PersonalRecordCard(
 @Composable
 private fun PersonalRecordRow(
     title: String,
-    value: String
+    value: String,
+    date: String,
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = enabled
+            ) {
+                onClick()
+            }
+            .padding(
+                vertical = 4.dp
+            ),
         horizontalArrangement =
             Arrangement.SpaceBetween,
         verticalAlignment =
@@ -308,16 +352,53 @@ private fun PersonalRecordRow(
             fontWeight = FontWeight.Bold
         )
 
-        Text(
-            text = value,
-            color = ForceColors.Primary,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Column(
+            horizontalAlignment =
+                Alignment.End
+        ) {
+
+            Text(
+                text = value,
+                color = ForceColors.Primary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (date.isNotBlank()) {
+
+                Spacer(
+                    modifier = Modifier.height(2.dp)
+                )
+
+                Text(
+                    text = "$date  →",
+                    color = ForceColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
 
 
+private fun formatRecordDate(
+    timestamp: Long?
+): String {
+
+    if (
+        timestamp == null ||
+        timestamp <= 0L
+    ) {
+        return ""
+    }
+
+    return SimpleDateFormat(
+        "dd MMM yyyy",
+        Locale.getDefault()
+    ).format(
+        Date(timestamp)
+    )
+}
 private fun formatRecord(
     weight: Double?,
     reps: Int?

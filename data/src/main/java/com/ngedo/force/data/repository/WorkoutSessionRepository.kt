@@ -79,6 +79,31 @@ class WorkoutSessionRepository(
         return workoutSessionDao.getAllSessions()
     }
 
+    fun getCompletedSessionsForDate(
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<WorkoutSessionEntity>> {
+
+        return workoutSessionDao
+            .getCompletedSessionsForDate(
+                startTime = startTime,
+                endTime = endTime
+            )
+    }
+
+
+    fun getCompletedWorkoutDates(
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<Long>> {
+
+        return workoutSessionDao
+            .getCompletedWorkoutDates(
+                startTime = startTime,
+                endTime = endTime
+            )
+    }
+
     fun getExercisesForSession(
         sessionId: Long
     ): Flow<List<WorkoutExerciseEntity>> {
@@ -127,6 +152,23 @@ class WorkoutSessionRepository(
 
         return workoutSetDao.getPreviousBestWeight(
             exerciseName
+        )
+    }
+
+    suspend fun deleteWorkoutSession(
+        sessionId: Long
+    ) {
+
+        workoutSetDao.deleteSetsForSession(
+            sessionId = sessionId
+        )
+
+        workoutExerciseDao.deleteExercisesForSession(
+            sessionId = sessionId
+        )
+
+        workoutSessionDao.deleteSession(
+            sessionId = sessionId
         )
     }
 
@@ -189,11 +231,23 @@ class WorkoutSessionRepository(
                 repsAtHighestWeight =
                     weightRecord?.repsAtHighestWeight,
 
+                highestWeightDate =
+                    weightRecord?.highestWeightDate,
+
+                highestWeightSessionId =
+                    weightRecord?.highestWeightSessionId,
+
                 highestReps =
                     repRecord?.highestReps,
 
                 weightAtHighestReps =
-                    repRecord?.weightAtHighestReps
+                    repRecord?.weightAtHighestReps,
+
+                highestRepsDate =
+                    repRecord?.highestRepsDate,
+
+                highestRepsSessionId =
+                    repRecord?.highestRepsSessionId
             )
         }
     }
