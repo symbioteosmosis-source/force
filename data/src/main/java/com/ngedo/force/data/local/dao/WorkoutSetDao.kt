@@ -7,6 +7,8 @@ import com.ngedo.force.data.local.entity.WorkoutSetEntity
 import com.ngedo.force.data.local.model.ExercisePersonalRecord
 import kotlinx.coroutines.flow.Flow
 import com.ngedo.force.data.local.model.ExerciseHistoricalSet
+import com.ngedo.force.data.local.model.DailyWorkoutVolume
+import com.ngedo.force.data.local.model.ExerciseStrengthProgress
 
 @Dao
 interface WorkoutSetDao {
@@ -447,4 +449,85 @@ interface WorkoutSetDao {
     suspend fun deleteSetsForSession(
         sessionId: Long
     )
+
+    @Query(
+        """
+    SELECT
+        session.startedAt AS workoutDate,
+        SUM(ws.weight * ws.reps) AS totalVolume
+
+    FROM workout_sets ws
+
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+
+    INNER JOIN workout_sessions session
+        ON we.sessionId = session.id
+
+    WHERE session.isCompleted = 1
+      AND session.startedAt >= :startTime
+      AND session.startedAt < :endTime
+      AND ws.weight > 0
+      AND ws.reps > 0
+
+    GROUP BY session.id
+    ORDER BY session.startedAt ASC
+    """
+    )
+    suspend fun getWorkoutVolumeHistory(
+        startTime: Long,
+        endTime: Long
+    ): List<DailyWorkoutVolume>
+
+    @Query(
+        """
+    SELECT
+        session.startedAt AS workoutDate,
+        ws.weight AS highestWeight,
+        ws.reps AS reps
+
+    FROM workout_sets ws
+
+    INNER JOIN workout_exercises we
+        ON ws.workoutExerciseId = we.id
+
+    INNER JOIN workout_sessions session
+        ON we.sessionId = session.id
+
+    WHERE we.exerciseName = :exerciseName
+      AND session.isCompleted = 1
+      AND session.startedAt >= :startTime
+      AND session.startedAt < :endTime
+      AND ws.weight > 0
+      AND ws.reps > 0
+
+      AND ws.id = (
+          SELECT ws2.id
+
+          FROM workout_sets ws2
+
+          INNER JOIN workout_exercises we2
+              ON ws2.workoutExerciseId = we2.id
+
+          WHERE we2.sessionId = session.id
+            AND we2.exerciseName = :exerciseName
+            AND ws2.weight > 0
+            AND ws2.reps > 0
+
+          ORDER BY
+              ws2.weight DESC,
+              ws2.reps DESC,
+              ws2.id DESC
+
+          LIMIT 1
+      )
+
+    ORDER BY session.startedAt ASC
+    """
+    )
+    suspend fun getExerciseStrengthHistory(
+        exerciseName: String,
+        startTime: Long,
+        endTime: Long
+    ): List<ExerciseStrengthProgress>
 }

@@ -1,6 +1,9 @@
 package com.ngedo.force.feature.workout
 import com.ngedo.force.data.local.entity.WorkoutSetEntity
 data class ActiveWorkoutUiState(
+    val plannedExerciseNames: List<String> = emptyList(),
+    val plannedExercises: List<PlannedWorkoutExercise> = emptyList(),
+
     val isWorkoutStarted: Boolean = false,
     val isWorkoutComplete: Boolean = false,
 
@@ -8,6 +11,7 @@ data class ActiveWorkoutUiState(
     val sessionStartedAt: Long? = null,
     val exerciseIds: List<Long> = emptyList(),
     val exerciseNames: List<String> = emptyList(),
+    val completedExerciseNames: Set<String> = emptySet(),
     val isSessionReady: Boolean = false,
 
     val currentExerciseIndex: Int = 0,

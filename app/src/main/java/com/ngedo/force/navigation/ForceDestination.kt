@@ -6,6 +6,19 @@ sealed class ForceDestination(val route: String) {
 
     object Workout : ForceDestination("workout")
 
+    object ExerciseLibrary : ForceDestination("exercise_library")
+
+    object ExerciseDetail : ForceDestination(
+        "exercise_detail/{exerciseId}"
+    ) {
+
+        fun createRoute(
+            exerciseId: String
+        ): String {
+            return "exercise_detail/$exerciseId"
+        }
+    }
+
     object WorkoutHistory : ForceDestination("workout_history")
 
     object WorkoutHistoryDetail : ForceDestination(

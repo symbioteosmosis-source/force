@@ -22,6 +22,10 @@ import com.ngedo.force.feature.workout.WorkoutScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.ngedo.force.feature.workout.WorkoutHistoryDetailScreen
+import com.ngedo.force.feature.exercise.ExerciseLibraryScreen
+import com.ngedo.force.feature.exercise.ExerciseDetailScreen
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 
 @Composable
 fun ForceNavGraph() {
@@ -75,6 +79,10 @@ fun ForceNavGraph() {
     val showBottomBar =
         currentRoute !=
                 ForceDestination.Workout.route &&
+                currentRoute !=
+                ForceDestination.ExerciseLibrary.route &&
+                currentRoute !=
+                ForceDestination.ExerciseDetail.route &&
                 currentRoute !=
                 ForceDestination.WorkoutHistory.route &&
                 currentRoute !=
@@ -208,12 +216,203 @@ fun ForceNavGraph() {
             composable(
                 route =
                     ForceDestination.Workout.route
-            ) {
+            ) { backStackEntry ->
 
-                WorkoutScreen()
+                val exercisesToAdd by
+                backStackEntry
+                    .savedStateHandle
+                    .getStateFlow(
+                        "exercises_to_add",
+                        emptyList<String>()
+                    )
+                    .collectAsState()
+
+
+                WorkoutScreen(
+                    exercisesToAdd = exercisesToAdd,
+
+                    onExerciseAdded = {
+
+                        backStackEntry
+                            .savedStateHandle
+                            .remove<List<String>>(
+                                "exercises_to_add"
+                            )
+                    },
+
+                    onExerciseLibraryClick = {
+
+                        navController.navigate(
+                            ForceDestination.ExerciseLibrary.route
+                        )
+                    },
+
+                    onExerciseDetailsClick = { exerciseId ->
+
+                        navController.navigate(
+                            ForceDestination
+                                .ExerciseDetail
+                                .createRoute(
+                                    exerciseId
+                                )
+                        )
+                    },
+
+                    onPlannedExerciseNamesChanged = { exerciseNames ->
+
+                        backStackEntry
+                            .savedStateHandle[
+                            "planned_exercise_names"
+                        ] =
+                            exerciseNames
+                    }
+                )
             }
 
+            /*
+ * -------------------------------------------------
+ * EXERCISE LIBRARY
+ * -------------------------------------------------
+ */
 
+            composable(
+                route =
+                    ForceDestination.ExerciseLibrary.route
+            ) { backStackEntry ->
+
+                val workoutEntry =
+                    remember(backStackEntry) {
+                        navController.getBackStackEntry(
+                            ForceDestination.Workout.route
+                        )
+                    }
+
+                val addedExerciseNames by
+                workoutEntry.savedStateHandle
+                    .getStateFlow(
+                        "planned_exercise_names",
+                        emptyList<String>()
+                    )
+                    .collectAsState()
+
+                ExerciseLibraryScreen(
+
+                    addedExerciseNames =
+                        addedExerciseNames.toSet(),
+
+                    onAddExercise = { exercise ->
+
+                        val pendingExercises =
+                            workoutEntry
+                                .savedStateHandle
+                                .get<List<String>>(
+                                    "exercises_to_add"
+                                )
+                                ?: emptyList()
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "exercises_to_add"
+                        ] =
+                            (
+                                    pendingExercises +
+                                            exercise.name
+                                    ).distinct()
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "planned_exercise_names"
+                        ] =
+                            (
+                                    addedExerciseNames +
+                                            exercise.name
+                                    ).distinct()
+                    },
+                    onExerciseClick = { exercise ->
+
+                        navController.navigate(
+                            ForceDestination
+                                .ExerciseDetail
+                                .createRoute(
+                                    exercise.id
+                                )
+                        )
+                    }
+                )
+            }
+
+            composable(
+                route =
+                    ForceDestination.ExerciseDetail.route,
+
+                arguments = listOf(
+                    navArgument(
+                        "exerciseId"
+                    ) {
+                        type =
+                            NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+
+                val workoutEntry =
+                    remember(backStackEntry) {
+                        navController.getBackStackEntry(
+                            ForceDestination.Workout.route
+                        )
+                    }
+
+                val addedExerciseNames by
+                workoutEntry
+                    .savedStateHandle
+                    .getStateFlow(
+                        "planned_exercise_names",
+                        emptyList<String>()
+                    )
+                    .collectAsState()
+
+                ExerciseDetailScreen(
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    addedExerciseNames =
+                        addedExerciseNames.toSet(),
+
+                    onUseInWorkout = { exercise ->
+
+                        val pendingExercises =
+                            workoutEntry
+                                .savedStateHandle
+                                .get<List<String>>(
+                                    "exercises_to_add"
+                                )
+                                ?: emptyList()
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "exercises_to_add"
+                        ] =
+                            (
+                                    pendingExercises +
+                                            exercise.name
+                                    ).distinct()
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "planned_exercise_names"
+                        ] =
+                            (
+                                    addedExerciseNames +
+                                            exercise.name
+                                    ).distinct()
+
+                        // Do NOT popBackStack().
+                        // User stays on Exercise Detail.
+                    }
+                )
+            }
             /*
              * -------------------------------------------------
              * WORKOUT HISTORY

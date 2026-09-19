@@ -20,6 +20,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.ngedo.force.data.local.repository.NutritionRepository
 import com.ngedo.force.data.local.dao.UserProfileDao
 import com.ngedo.force.data.local.repository.UserProfileRepository
+import com.ngedo.force.data.local.dao.FavoriteExerciseDao
+import com.ngedo.force.data.local.dao.ExerciseDao
 
 
 @Module
@@ -179,6 +181,59 @@ object DatabaseModule {
             }
         }
 
+    val MIGRATION_9_10 =
+        object : Migration(9, 10) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS `favorite_exercises` (
+                    `exerciseName` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`exerciseName`)
+                )
+                """.trimIndent()
+                )
+            }
+        }
+
+    private val MIGRATION_10_11 =
+        object : Migration(10, 11) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS `exercises` (
+                    `id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `primaryMuscle` TEXT NOT NULL,
+                    `secondaryMuscles` TEXT NOT NULL,
+                    `equipment` TEXT NOT NULL,
+                    `movementType` TEXT NOT NULL,
+                    `difficulty` TEXT NOT NULL,
+                    `instructions` TEXT NOT NULL,
+                    `mediaPath` TEXT,
+                    `isCustom` INTEGER NOT NULL,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+                )
+            }
+        }
+
+    @Provides
+    fun provideExerciseDao(
+        database: ForceDatabase
+    ): ExerciseDao {
+        return database.exerciseDao()
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(
@@ -196,7 +251,9 @@ object DatabaseModule {
                 MIGRATION_5_6,
                 MIGRATION_6_7,
                 MIGRATION_7_8,
-                MIGRATION_8_9
+                MIGRATION_8_9,
+                MIGRATION_9_10,
+                MIGRATION_10_11,
             )
             .build()
     }
@@ -210,6 +267,13 @@ object DatabaseModule {
         return UserProfileRepository(
             userProfileDao = userProfileDao
         )
+    }
+
+    @Provides
+    fun provideFavoriteExerciseDao(
+        database: ForceDatabase
+    ): FavoriteExerciseDao {
+        return database.favoriteExerciseDao()
     }
 
     @Provides
@@ -268,12 +332,15 @@ object DatabaseModule {
     fun provideWorkoutSessionRepository(
         workoutSessionDao: WorkoutSessionDao,
         workoutExerciseDao: WorkoutExerciseDao,
-        workoutSetDao: WorkoutSetDao
+        workoutSetDao: WorkoutSetDao,
+        favoriteExerciseDao: FavoriteExerciseDao
     ): WorkoutSessionRepository {
+
         return WorkoutSessionRepository(
             workoutSessionDao = workoutSessionDao,
             workoutExerciseDao = workoutExerciseDao,
-            workoutSetDao = workoutSetDao
+            workoutSetDao = workoutSetDao,
+            favoriteExerciseDao = favoriteExerciseDao
         )
     }
 

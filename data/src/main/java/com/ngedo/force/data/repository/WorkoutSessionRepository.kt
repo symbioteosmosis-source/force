@@ -10,11 +10,16 @@ import kotlinx.coroutines.flow.Flow
 import com.ngedo.force.data.local.model.ExercisePersonalRecord
 import com.ngedo.force.data.local.model.PersonalRecordResult
 import com.ngedo.force.data.local.model.ExerciseHistoricalSet
+import com.ngedo.force.data.local.model.DailyWorkoutVolume
+import com.ngedo.force.data.local.model.ExerciseStrengthProgress
+import com.ngedo.force.data.local.dao.FavoriteExerciseDao
+import com.ngedo.force.data.local.entity.FavoriteExerciseEntity
 
 class WorkoutSessionRepository(
     private val workoutSessionDao: WorkoutSessionDao,
     private val workoutExerciseDao: WorkoutExerciseDao,
-    private val workoutSetDao: WorkoutSetDao
+    private val workoutSetDao: WorkoutSetDao,
+    private val favoriteExerciseDao: FavoriteExerciseDao
 ) {
 
     suspend fun startSession(
@@ -137,6 +142,39 @@ class WorkoutSessionRepository(
         return workoutSetDao.getPreviousBestSet(
             exerciseName = exerciseName,
             currentExerciseId = currentExerciseId
+        )
+    }
+
+    suspend fun getExerciseStrengthHistory(
+        exerciseName: String,
+        startTime: Long,
+        endTime: Long
+    ): List<ExerciseStrengthProgress> {
+        return workoutSetDao.getExerciseStrengthHistory(
+            exerciseName = exerciseName,
+            startTime = startTime,
+            endTime = endTime
+        )
+    }
+
+    suspend fun getWorkoutVolumeHistory(
+        startTime: Long,
+        endTime: Long
+    ): List<DailyWorkoutVolume> {
+
+        return workoutSetDao.getWorkoutVolumeHistory(
+            startTime = startTime,
+            endTime = endTime
+        )
+    }
+
+    suspend fun getCompletedWorkoutCount(
+        startTime: Long,
+        endTime: Long
+    ): Int {
+        return workoutSessionDao.getCompletedWorkoutCount(
+            startTime = startTime,
+            endTime = endTime
         )
     }
     suspend fun completeExercise(
@@ -350,6 +388,31 @@ class WorkoutSessionRepository(
         return workoutSetDao.getMostRecentPerformance(
             exerciseName = exerciseName,
             currentExerciseId = currentExerciseId
+        )
+    }
+
+    fun observeFavoriteExercises() =
+        favoriteExerciseDao.observeFavorites()
+
+    suspend fun addFavoriteExercise(
+        exerciseName: String
+    ) {
+        favoriteExerciseDao.addFavorite(
+            FavoriteExerciseEntity(
+                exerciseName = exerciseName,
+                createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun removeFavoriteExercise(
+        exerciseName: String
+    ) {
+        favoriteExerciseDao.removeFavorite(
+            FavoriteExerciseEntity(
+                exerciseName = exerciseName,
+                createdAt = 0L
+            )
         )
     }
 

@@ -77,6 +77,19 @@ interface WorkoutSessionDao {
 
     @Query(
         """
+    SELECT COUNT(*)
+    FROM workout_sessions
+    WHERE isCompleted = 1
+      AND startedAt >= :startTime
+      AND startedAt < :endTime
+    """
+    )
+    suspend fun getCompletedWorkoutCount(
+        startTime: Long,
+        endTime: Long
+    ): Int
+    @Query(
+        """
     DELETE FROM workout_sessions
     WHERE id = :sessionId
     """

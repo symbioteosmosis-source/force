@@ -11,10 +11,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.ngedo.force.data.local.repository.ExerciseRepository
 
 @HiltViewModel
 class ActiveWorkoutViewModel @Inject constructor(
-    private val workoutSessionRepository: WorkoutSessionRepository
+    private val workoutSessionRepository: WorkoutSessionRepository,
+    private val exerciseRepository: ExerciseRepository
 ) : ViewModel() {
 
     private var setsObserverJob: Job? = null
@@ -26,6 +28,22 @@ class ActiveWorkoutViewModel @Inject constructor(
     val uiState: StateFlow<ActiveWorkoutUiState> =
         _uiState.asStateFlow()
 
+    fun openExerciseDetails(
+        exerciseName: String,
+        onExerciseFound: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+
+            val exercise =
+                exerciseRepository.getExerciseByName(
+                    exerciseName
+                )
+
+            exercise?.let {
+                onExerciseFound(it.id)
+            }
+        }
+    }
     private fun observeSetsForCurrentExercise(
         exerciseId: Long
     ) {
@@ -128,15 +146,21 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun startWorkout(
-        exerciseNames: List<String>,
-        totalSets: Int
+        plannedExercises: List<PlannedWorkoutExercise>
     ) {
         restTimerJob?.cancel()
+
+        if (plannedExercises.isEmpty()) {
+            return
+        }
 
         viewModelScope.launch {
 
             val startedAt =
                 System.currentTimeMillis()
+
+            val exerciseNames =
+                plannedExercises.map { it.name }
 
             val sessionId =
                 workoutSessionRepository.startSession(
@@ -154,6 +178,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                     )
                 }
 
+            val firstExercise =
+                plannedExercises.first()
+
             _uiState.value =
                 ActiveWorkoutUiState(
                     isWorkoutStarted = true,
@@ -161,6 +188,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                     sessionStartedAt = startedAt,
                     exerciseIds = exerciseIds,
                     exerciseNames = exerciseNames,
+
+                    plannedExercises = plannedExercises,
+                    plannedExerciseNames = exerciseNames,
+
                     isSessionReady = true
                 )
 
@@ -172,14 +203,14 @@ class ActiveWorkoutViewModel @Inject constructor(
 
                 loadPreviousBest(
                     exerciseId = exerciseId,
-                    exerciseName = exerciseNames.first()
+                    exerciseName = firstExercise.name
                 )
 
                 loadTrainingRecommendation(
                     exerciseId = exerciseId,
-                    exerciseName = exerciseNames.first(),
+                    exerciseName = firstExercise.name,
                     currentSet = 1,
-                    totalSets = totalSets
+                    totalSets = firstExercise.sets
                 )
             }
         }
@@ -291,6 +322,17 @@ class ActiveWorkoutViewModel @Inject constructor(
                 )
             }
 
+            val updatedCompletedExerciseNames =
+                if (
+                    currentState.currentSet >= totalSets &&
+                    exerciseName != null
+                ) {
+                    _uiState.value.completedExerciseNames +
+                            exerciseName
+                } else {
+                    _uiState.value.completedExerciseNames
+                }
+
             val updatedCompletedSets =
                 currentState.completedSets + 1
 
@@ -349,8 +391,13 @@ class ActiveWorkoutViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             completedSets = updatedCompletedSets,
+
+                            completedExerciseNames =
+                                updatedCompletedExerciseNames,
+
                             currentWeight = "",
                             currentReps = "",
+
                             isResting = false,
                             restSecondsRemaining = 0,
 
@@ -385,6 +432,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             completedSets = updatedCompletedSets,
+
+                            completedExerciseNames =
+                                updatedCompletedExerciseNames,
+
                             currentWeight = "",
                             currentReps = "",
                             isResting = false,
@@ -415,6 +466,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                 _uiState.value =
                     _uiState.value.copy(
                         completedSets = updatedCompletedSets,
+
+                        completedExerciseNames =
+                            updatedCompletedExerciseNames,
+
                         currentExerciseIndex = nextExerciseIndex,
                         currentSet = 1,
                         currentWeight = "",
@@ -548,6 +603,169 @@ class ActiveWorkoutViewModel @Inject constructor(
                     }
             }
         }
+    }
+
+    fun addPlannedExercise(
+        exerciseName: String
+    ) {
+
+        val currentExercises =
+            _uiState.value.plannedExercises
+
+        if (
+            currentExercises.any {
+                it.name.equals(
+                    exerciseName,
+                    ignoreCase = true
+                )
+            }
+        ) {
+            return
+        }
+
+        val newExercise =
+            PlannedWorkoutExercise(
+                name = exerciseName,
+                target = "Exercise Library",
+                sets = 3,
+                reps = "8-12",
+                restSeconds = 90
+            )
+
+        val updatedExercises =
+            currentExercises + newExercise
+
+        _uiState.value =
+            _uiState.value.copy(
+                plannedExercises =
+                    updatedExercises,
+
+                plannedExerciseNames =
+                    updatedExercises.map {
+                        it.name
+                    }
+            )
+    }
+
+
+
+    fun initializePlannedExercises(
+        exercises: List<PlannedWorkoutExercise>
+    ) {
+
+        if (_uiState.value.plannedExercises.isNotEmpty()) {
+            return
+        }
+
+        _uiState.value =
+            _uiState.value.copy(
+                plannedExercises = exercises,
+
+                plannedExerciseNames =
+                    exercises.map {
+                        it.name
+                    }
+            )
+    }
+
+    fun movePlannedExerciseUp(
+        exerciseName: String
+    ) {
+        val current = _uiState.value.plannedExercises
+        val index = current.indexOfFirst {
+            it.name.equals(exerciseName, ignoreCase = true)
+        }
+
+        if (index <= 0) return
+
+        val updated = current.toMutableList()
+
+        val exercise = updated.removeAt(index)
+        updated.add(index - 1, exercise)
+
+        _uiState.value = _uiState.value.copy(
+            plannedExercises = updated,
+            plannedExerciseNames = updated.map { it.name }
+        )
+    }
+
+    fun movePlannedExerciseDown(
+        exerciseName: String
+    ) {
+        val current = _uiState.value.plannedExercises
+        val index = current.indexOfFirst {
+            it.name.equals(exerciseName, ignoreCase = true)
+        }
+
+        if (index == -1 || index >= current.lastIndex) return
+
+        val updated = current.toMutableList()
+
+        val exercise = updated.removeAt(index)
+        updated.add(index + 1, exercise)
+
+        _uiState.value = _uiState.value.copy(
+            plannedExercises = updated,
+            plannedExerciseNames = updated.map { it.name }
+        )
+    }
+    fun removePlannedExercise(
+        exerciseName: String
+    ) {
+
+        val updatedExercises =
+            _uiState.value
+                .plannedExercises
+                .filterNot {
+                    it.name.equals(
+                        exerciseName,
+                        ignoreCase = true
+                    )
+                }
+
+        _uiState.value =
+            _uiState.value.copy(
+                plannedExercises =
+                    updatedExercises,
+
+                plannedExerciseNames =
+                    updatedExercises.map {
+                        it.name
+                    }
+            )
+    }
+
+    fun updatePlannedExercise(
+        exerciseName: String,
+        sets: Int,
+        reps: String,
+        restSeconds: Int
+    ) {
+        val updatedExercises =
+            _uiState.value.plannedExercises.map { exercise ->
+
+                if (
+                    exercise.name.equals(
+                        exerciseName,
+                        ignoreCase = true
+                    )
+                ) {
+                    exercise.copy(
+                        sets = sets.coerceAtLeast(1),
+                        reps = reps.trim(),
+                        restSeconds = restSeconds.coerceAtLeast(0)
+                    )
+                } else {
+                    exercise
+                }
+            }
+
+        _uiState.value =
+            _uiState.value.copy(
+                plannedExercises = updatedExercises,
+                plannedExerciseNames =
+                    updatedExercises.map { it.name }
+            )
     }
 
     fun nextExercise(
