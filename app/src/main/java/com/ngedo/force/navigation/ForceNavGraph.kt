@@ -227,6 +227,14 @@ fun ForceNavGraph() {
                     )
                     .collectAsState()
 
+                val exerciseToRemove by
+                backStackEntry
+                    .savedStateHandle
+                    .getStateFlow<String?>(
+                        "exercise_to_remove",
+                        null
+                    )
+                    .collectAsState()
 
                 WorkoutScreen(
                     exercisesToAdd = exercisesToAdd,
@@ -237,6 +245,17 @@ fun ForceNavGraph() {
                             .savedStateHandle
                             .remove<List<String>>(
                                 "exercises_to_add"
+                            )
+                    },
+
+                    exerciseToRemove = exerciseToRemove,
+
+                    onExerciseRemoved = {
+
+                        backStackEntry
+                            .savedStateHandle
+                            .remove<String>(
+                                "exercise_to_remove"
                             )
                     },
 
@@ -252,9 +271,7 @@ fun ForceNavGraph() {
                         navController.navigate(
                             ForceDestination
                                 .ExerciseDetail
-                                .createRoute(
-                                    exerciseId
-                                )
+                                .createRoute(exerciseId)
                         )
                     },
 
@@ -263,8 +280,7 @@ fun ForceNavGraph() {
                         backStackEntry
                             .savedStateHandle[
                             "planned_exercise_names"
-                        ] =
-                            exerciseNames
+                        ] = exerciseNames
                     }
                 )
             }
@@ -328,6 +344,27 @@ fun ForceNavGraph() {
                                             exercise.name
                                     ).distinct()
                     },
+                    onRemoveExercise = { exercise ->
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "exercise_to_remove"
+                        ] =
+                            exercise.name
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "planned_exercise_names"
+                        ] =
+                            addedExerciseNames.filterNot { exerciseName ->
+
+                                exerciseName.equals(
+                                    exercise.name,
+                                    ignoreCase = true
+                                )
+                            }
+                    },
+
                     onExerciseClick = { exercise ->
 
                         navController.navigate(
@@ -410,9 +447,32 @@ fun ForceNavGraph() {
 
                         // Do NOT popBackStack().
                         // User stays on Exercise Detail.
+                    },
+                    onRemoveFromWorkout = { exercise ->
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "exercise_to_remove"
+                        ] =
+                            exercise.name
+
+                        workoutEntry
+                            .savedStateHandle[
+                            "planned_exercise_names"
+                        ] =
+                            addedExerciseNames.filterNot { exerciseName ->
+
+                                exerciseName.equals(
+                                    exercise.name,
+                                    ignoreCase = true
+                                )
+                            }
                     }
                 )
             }
+
+
+
             /*
              * -------------------------------------------------
              * WORKOUT HISTORY

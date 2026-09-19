@@ -126,6 +126,8 @@ fun WorkoutScreen(
     onExerciseLibraryClick: () -> Unit = {},
     onExerciseDetailsClick: (String) -> Unit = {},
     exercisesToAdd: List<String> = emptyList(),
+    exerciseToRemove: String? = null,
+    onExerciseRemoved: () -> Unit = {},
     onExerciseAdded: () -> Unit = {},
     onPlannedExerciseNamesChanged: (List<String>) -> Unit = {}
 ) {
@@ -190,10 +192,25 @@ fun WorkoutScreen(
     }
 
     LaunchedEffect(
-        uiState.plannedExerciseNames
+        exerciseToRemove
+    ) {
+        exerciseToRemove?.let { exerciseName ->
+
+            workoutViewModel.removePlannedExercise(
+                exerciseName
+            )
+
+            onExerciseRemoved()
+        }
+    }
+
+    LaunchedEffect(
+        uiState.plannedExercises
     ) {
         onPlannedExerciseNamesChanged(
-            uiState.plannedExerciseNames
+            uiState.plannedExercises.map {
+                it.name
+            }
         )
     }
 

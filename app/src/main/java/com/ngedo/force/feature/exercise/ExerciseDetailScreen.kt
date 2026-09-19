@@ -36,6 +36,7 @@ import com.ngedo.force.data.local.entity.ExerciseEntity
 fun ExerciseDetailScreen(
     onBack: () -> Unit = {},
     onUseInWorkout: (ExerciseEntity) -> Unit = {},
+    onRemoveFromWorkout: (ExerciseEntity) -> Unit = {},
     addedExerciseNames: Set<String> = emptySet(),
     viewModel: ExerciseDetailViewModel = hiltViewModel()
 ){
@@ -204,21 +205,24 @@ fun ExerciseDetailScreen(
 
         Button(
             onClick = {
-                if (!isInWorkout) {
+                if (isInWorkout) {
+                    onRemoveFromWorkout(exercise)
+                } else {
                     onUseInWorkout(exercise)
                 }
             },
-
-            enabled = !isInWorkout,
 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
 
             colors = ButtonDefaults.buttonColors(
-                containerColor = ForceColors.Primary,
-                disabledContainerColor = ForceColors.Surface,
-                disabledContentColor = ForceColors.TextSecondary
+                containerColor =
+                    if (isInWorkout) {
+                        ForceColors.Surface
+                    } else {
+                        ForceColors.Primary
+                    }
             ),
 
             shape = RoundedCornerShape(16.dp)
@@ -231,12 +235,14 @@ fun ExerciseDetailScreen(
                     } else {
                         "ADD TO WORKOUT"
                     },
+
                 color =
                     if (isInWorkout) {
                         ForceColors.TextSecondary
                     } else {
                         ForceColors.Background
                     },
+
                 fontWeight = FontWeight.Bold
             )
         }

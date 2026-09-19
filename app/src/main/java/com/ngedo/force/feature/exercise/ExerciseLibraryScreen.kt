@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.Box
 fun ExerciseLibraryScreen(
     onExerciseClick: (ExerciseEntity) -> Unit = {},
     onAddExercise: (ExerciseEntity) -> Unit = {},
+    onRemoveExercise: (ExerciseEntity) -> Unit = {},
     addedExerciseNames: Set<String> = emptySet(),
     viewModel: ExerciseLibraryViewModel = hiltViewModel()
 ) {
@@ -337,10 +338,14 @@ fun ExerciseLibraryScreen(
                                     color = ForceColors.TextSecondary,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(
-                                        horizontal = 8.dp,
-                                        vertical = 4.dp
-                                    )
+                                    modifier = Modifier
+                                        .clickable {
+                                            onRemoveExercise(exercise)
+                                        }
+                                        .padding(
+                                            horizontal = 8.dp,
+                                            vertical = 4.dp
+                                        )
                                 )
 
                             } else {
@@ -351,9 +356,7 @@ fun ExerciseLibraryScreen(
                                     style = MaterialTheme.typography.titleLarge,
                                     modifier = Modifier
                                         .clickable {
-                                            onAddExercise(
-                                                exercise
-                                            )
+                                            onAddExercise(exercise)
                                         }
                                         .padding(
                                             horizontal = 8.dp,
