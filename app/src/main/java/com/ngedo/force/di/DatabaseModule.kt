@@ -22,7 +22,8 @@ import com.ngedo.force.data.local.dao.UserProfileDao
 import com.ngedo.force.data.local.repository.UserProfileRepository
 import com.ngedo.force.data.local.dao.FavoriteExerciseDao
 import com.ngedo.force.data.local.dao.ExerciseDao
-
+import com.ngedo.force.data.local.dao.WorkoutPlanDao
+import com.ngedo.force.data.repository.WorkoutPlanRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -227,6 +228,99 @@ object DatabaseModule {
             }
         }
 
+    private val MIGRATION_11_12 =
+        object : Migration(11, 12) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS `workout_plans` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `goal` TEXT NOT NULL,
+                    `startDate` INTEGER NOT NULL,
+                    `endDate` INTEGER NOT NULL,
+                    `isActive` INTEGER NOT NULL,
+                    `createdAt` INTEGER NOT NULL
+                )
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS `planned_workouts` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `planId` INTEGER NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `weekNumber` INTEGER NOT NULL,
+                    `scheduledDate` INTEGER NOT NULL,
+                    `isCompleted` INTEGER NOT NULL,
+                    `completedSessionId` INTEGER,
+                    FOREIGN KEY(`planId`)
+                        REFERENCES `workout_plans`(`id`)
+                        ON UPDATE NO ACTION
+                        ON DELETE CASCADE
+                )
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE INDEX IF NOT EXISTS
+                `index_planned_workouts_planId`
+                ON `planned_workouts` (`planId`)
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE INDEX IF NOT EXISTS
+                `index_planned_workouts_scheduledDate`
+                ON `planned_workouts` (`scheduledDate`)
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE TABLE IF NOT EXISTS `planned_exercises` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `plannedWorkoutId` INTEGER NOT NULL,
+                    `exerciseId` TEXT NOT NULL,
+                    `exerciseName` TEXT NOT NULL,
+                    `target` TEXT NOT NULL,
+                    `exerciseOrder` INTEGER NOT NULL,
+                    `sets` INTEGER NOT NULL,
+                    `reps` TEXT NOT NULL,
+                    `restSeconds` INTEGER NOT NULL,
+                    FOREIGN KEY(`plannedWorkoutId`)
+                        REFERENCES `planned_workouts`(`id`)
+                        ON UPDATE NO ACTION
+                        ON DELETE CASCADE
+                )
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE INDEX IF NOT EXISTS
+                `index_planned_exercises_plannedWorkoutId`
+                ON `planned_exercises` (`plannedWorkoutId`)
+                """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                CREATE INDEX IF NOT EXISTS
+                `index_planned_exercises_exerciseId`
+                ON `planned_exercises` (`exerciseId`)
+                """.trimIndent()
+                )
+            }
+        }
+
     @Provides
     fun provideExerciseDao(
         database: ForceDatabase
@@ -254,6 +348,7 @@ object DatabaseModule {
                 MIGRATION_8_9,
                 MIGRATION_9_10,
                 MIGRATION_10_11,
+                MIGRATION_11_12,
             )
             .build()
     }
@@ -267,6 +362,13 @@ object DatabaseModule {
         return UserProfileRepository(
             userProfileDao = userProfileDao
         )
+    }
+
+    @Provides
+    fun provideWorkoutPlanDao(
+        database: ForceDatabase
+    ): WorkoutPlanDao {
+        return database.workoutPlanDao()
     }
 
     @Provides
