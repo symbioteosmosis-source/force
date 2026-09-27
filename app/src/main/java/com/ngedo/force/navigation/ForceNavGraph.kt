@@ -26,6 +26,10 @@ import com.ngedo.force.feature.exercise.ExerciseLibraryScreen
 import com.ngedo.force.feature.exercise.ExerciseDetailScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import com.ngedo.force.feature.workout.plan.MonthlyPlanScreen
+import com.ngedo.force.feature.workout.plan.MonthlyPlanViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+
 
 @Composable
 fun ForceNavGraph() {
@@ -86,7 +90,14 @@ fun ForceNavGraph() {
                 currentRoute !=
                 ForceDestination.WorkoutHistory.route &&
                 currentRoute !=
-                ForceDestination.WorkoutHistoryDetail.route
+                ForceDestination.WorkoutHistoryDetail.route &&
+                currentRoute !=
+                ForceDestination.MonthlyPlan.route &&
+                currentRoute !=
+                "plan_exercise_library/{day}" &&
+                currentRoute !=
+                "plan_exercise_detail/{day}/{exerciseId}"
+
 
 
     /*
@@ -218,6 +229,15 @@ fun ForceNavGraph() {
                     ForceDestination.Workout.route
             ) { backStackEntry ->
 
+                val plannedWorkoutId by
+                backStackEntry
+                    .savedStateHandle
+                    .getStateFlow<Long?>(
+                        "planned_workout_id",
+                        null
+                    )
+                    .collectAsState()
+
                 val exercisesToAdd by
                 backStackEntry
                     .savedStateHandle
@@ -237,7 +257,21 @@ fun ForceNavGraph() {
                     .collectAsState()
 
                 WorkoutScreen(
-                    exercisesToAdd = exercisesToAdd,
+
+                    plannedWorkoutId =
+                        plannedWorkoutId,
+
+                    onPlannedWorkoutLoaded = {
+
+                        backStackEntry
+                            .savedStateHandle
+                            .remove<Long>(
+                                "planned_workout_id"
+                            )
+                    },
+
+                    exercisesToAdd =
+                        exercisesToAdd,
 
                     onExerciseAdded = {
 
@@ -248,7 +282,8 @@ fun ForceNavGraph() {
                             )
                     },
 
-                    exerciseToRemove = exerciseToRemove,
+                    exerciseToRemove =
+                        exerciseToRemove,
 
                     onExerciseRemoved = {
 
@@ -263,6 +298,13 @@ fun ForceNavGraph() {
 
                         navController.navigate(
                             ForceDestination.ExerciseLibrary.route
+                        )
+                    },
+
+                    onMonthlyPlanClick = {
+
+                        navController.navigate(
+                            ForceDestination.MonthlyPlan.route
                         )
                     },
 
@@ -471,7 +513,206 @@ fun ForceNavGraph() {
                 )
             }
 
+            /*
+             * -------------------------------------------------
+             * MONTHLY PLAN
+             * -------------------------------------------------
+             */
 
+            composable(
+                route = ForceDestination.MonthlyPlan.route
+            ) {
+
+                MonthlyPlanScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    onAddExercises = { day ->
+
+                        navController.navigate(
+                            "plan_exercise_library/$day"
+                        )
+                    },
+
+                    onExerciseDetails = { exerciseId, day ->
+
+                        navController.navigate(
+                            "plan_exercise_detail/$day/$exerciseId"
+                        )
+                    },
+
+                    onStartWorkout = { plannedWorkoutId ->
+
+                        navController
+                            .getBackStackEntry(
+                                ForceDestination.Workout.route
+                            )
+                            .savedStateHandle[
+                            "planned_workout_id"
+                        ] = plannedWorkoutId
+
+                        navController.popBackStack(
+                            route =
+                                ForceDestination.Workout.route,
+                            inclusive = false
+                        )
+                    }
+                )
+
+            }
+
+            composable(
+                route = "plan_exercise_library/{day}",
+
+                arguments = listOf(
+                    navArgument("day") {
+                        type = NavType.IntType
+                    }
+                )
+            ) { backStackEntry ->
+
+                val day =
+                    backStackEntry.arguments
+                        ?.getInt("day")
+                        ?: return@composable
+
+                val monthlyPlanEntry =
+                    remember(backStackEntry) {
+                        navController.getBackStackEntry(
+                            ForceDestination.MonthlyPlan.route
+                        )
+                    }
+
+                val planViewModel =
+                    hiltViewModel<MonthlyPlanViewModel>(
+                        monthlyPlanEntry
+                    )
+
+                val planState by
+                planViewModel.uiState.collectAsState()
+
+                val workoutDay =
+                    planState.workoutDays.firstOrNull {
+                        it.day == day
+                    }
+
+                val addedExerciseNames =
+                    workoutDay
+                        ?.exercises
+                        ?.map {
+                            it.exerciseName
+                        }
+                        ?.toSet()
+                        ?: emptySet()
+
+                ExerciseLibraryScreen(
+
+                    addedExerciseNames =
+                        addedExerciseNames,
+
+                    onAddExercise = { exercise ->
+
+                        planViewModel.addExerciseToSelectedDay(
+                            exerciseId = exercise.id,
+                            exerciseName = exercise.name,
+                            target = exercise.primaryMuscle
+                        )
+                    },
+
+                    onRemoveExercise = { exercise ->
+
+                        planViewModel.removeExerciseFromSelectedDay(
+                            exerciseId = exercise.id
+                        )
+                    },
+
+                    onExerciseClick = { exercise ->
+
+                        navController.navigate(
+                            "plan_exercise_detail/$day/${exercise.id}"
+                        )
+                    }
+                )
+            }
+
+            composable(
+                route =
+                    "plan_exercise_detail/{day}/{exerciseId}",
+
+                arguments = listOf(
+
+                    navArgument("day") {
+                        type = NavType.IntType
+                    },
+
+                    navArgument("exerciseId") {
+                        type = NavType.StringType
+                    }
+                )
+            ) { backStackEntry ->
+
+                val day =
+                    backStackEntry.arguments
+                        ?.getInt("day")
+                        ?: return@composable
+
+                val monthlyPlanEntry =
+                    remember(backStackEntry) {
+                        navController.getBackStackEntry(
+                            ForceDestination.MonthlyPlan.route
+                        )
+                    }
+
+                val planViewModel =
+                    hiltViewModel<MonthlyPlanViewModel>(
+                        monthlyPlanEntry
+                    )
+
+                val planState by
+                planViewModel.uiState.collectAsState()
+
+                val workoutDay =
+                    planState.workoutDays
+                        .firstOrNull {
+                            it.day == day
+                        }
+
+                val addedExerciseNames =
+                    workoutDay
+                        ?.exercises
+                        ?.map {
+                            it.exerciseName
+                        }
+                        ?.toSet()
+                        ?: emptySet()
+
+                ExerciseDetailScreen(
+
+                    onBack = {
+                        navController.popBackStack()
+                    },
+
+                    addedExerciseNames =
+                        addedExerciseNames,
+
+                    onUseInWorkout = { exercise ->
+
+                        planViewModel.addExerciseToSelectedDay(
+                            exerciseId = exercise.id,
+                            exerciseName = exercise.name,
+                            target = exercise.primaryMuscle
+                        )
+                    },
+
+                    onRemoveFromWorkout = { exercise ->
+
+                        planViewModel.removeExerciseFromSelectedDay(
+                            exerciseId = exercise.id
+                        )
+                    }
+                )
+            }
 
             /*
              * -------------------------------------------------

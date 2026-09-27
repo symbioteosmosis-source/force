@@ -50,6 +50,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.OutlinedButton
 
 
 private data class WorkoutExercise(
@@ -125,6 +126,12 @@ fun WorkoutScreen(
     workoutViewModel: ActiveWorkoutViewModel = hiltViewModel(),
     onExerciseLibraryClick: () -> Unit = {},
     onExerciseDetailsClick: (String) -> Unit = {},
+    onMonthlyPlanClick: () -> Unit = {},
+
+    plannedWorkoutId: Long? = null,
+    onPlannedWorkoutLoaded: () -> Unit = {},
+    plannedWorkoutExercises: List<PlannedWorkoutExercise>? = null,
+
     exercisesToAdd: List<String> = emptyList(),
     exerciseToRemove: String? = null,
     onExerciseRemoved: () -> Unit = {},
@@ -133,6 +140,20 @@ fun WorkoutScreen(
 ) {
 
     val uiState by workoutViewModel.uiState.collectAsState()
+
+    LaunchedEffect(
+        plannedWorkoutId
+    ) {
+
+        plannedWorkoutId?.let { workoutId ->
+
+            workoutViewModel.loadPlannedWorkout(
+                workoutId
+            )
+
+            onPlannedWorkoutLoaded()
+        }
+    }
 
     var exerciseBeingEdited by remember {
         mutableStateOf<PlannedWorkoutExercise?>(null)
@@ -153,24 +174,37 @@ fun WorkoutScreen(
     LaunchedEffect(
         uiState.isWorkoutStarted,
         uiState.isWorkoutComplete,
-        uiState.plannedExercises
+        uiState.plannedExercises,
+        plannedWorkoutExercises
     ) {
+
         if (
+            plannedWorkoutId == null &&
             !uiState.isWorkoutStarted &&
             !uiState.isWorkoutComplete &&
             uiState.plannedExercises.isEmpty()
         ) {
-            workoutViewModel.initializePlannedExercises(
-                todaysWorkout.map { exercise ->
-                    PlannedWorkoutExercise(
-                        name = exercise.name,
-                        target = exercise.target,
-                        sets = exercise.sets,
-                        reps = exercise.reps,
-                        restSeconds = exercise.restSeconds
-                    )
-                }
-            )
+
+            val exercises =
+                plannedWorkoutExercises
+                    ?.takeIf {
+                        it.isNotEmpty()
+                    }
+                    ?: todaysWorkout.map { exercise ->
+
+                        PlannedWorkoutExercise(
+                            name = exercise.name,
+                            target = exercise.target,
+                            sets = exercise.sets,
+                            reps = exercise.reps,
+                            restSeconds = exercise.restSeconds
+                        )
+                    }
+
+            workoutViewModel
+                .initializePlannedExercises(
+                    exercises
+                )
         }
     }
 
@@ -332,6 +366,8 @@ fun WorkoutScreen(
                     }
                 },
 
+
+
                 onNextExercise = {
 
                     val nextExerciseName =
@@ -352,6 +388,8 @@ fun WorkoutScreen(
                             nextExercise?.sets ?: 1
                     )
                 }
+
+
             )
         }
 
@@ -473,6 +511,9 @@ fun WorkoutScreen(
 
                 onExerciseLibraryClick =
                     onExerciseLibraryClick,
+
+                onMonthlyPlanClick =
+                    onMonthlyPlanClick,
 
                 onExerciseDetailsClick = { exercise ->
 
@@ -638,6 +679,7 @@ private fun WorkoutOverview(
     plannedExercises: List<PlannedWorkoutExercise>,
     onStartWorkout: () -> Unit,
     onExerciseLibraryClick: () -> Unit,
+    onMonthlyPlanClick: () -> Unit,
     onExerciseDetailsClick: (PlannedWorkoutExercise) -> Unit,
     onEditExercise: (PlannedWorkoutExercise) -> Unit,
     onRemoveExercise: (PlannedWorkoutExercise) -> Unit,
@@ -788,6 +830,16 @@ private fun WorkoutOverview(
                     Text(
                         text = "Exercise Library",
                         color = ForceColors.TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onMonthlyPlanClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "MONTHLY PLAN",
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -1791,6 +1843,10 @@ private fun WorkoutOverview(
                         Arrangement.spacedBy(16.dp)
                 ) {
 
+                    // =================================================
+                    // SETS
+                    // =================================================
+
                     OutlinedTextField(
                         value = setsText,
 
@@ -1816,11 +1872,42 @@ private fun WorkoutOverview(
                             KeyboardOptions(
                                 keyboardType =
                                     KeyboardType.Number
+                            ),
+
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                unfocusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                focusedLabelColor =
+                                    ForceColors.Primary,
+
+                                unfocusedLabelColor =
+                                    ForceColors.TextSecondary,
+
+                                focusedBorderColor =
+                                    ForceColors.Primary,
+
+                                unfocusedBorderColor =
+                                    ForceColors.TextSecondary,
+
+                                cursorColor =
+                                    ForceColors.Primary
                             )
                     )
 
+                    // =================================================
+                    // TARGET REPS
+                    // =================================================
+
                     OutlinedTextField(
-                        value = repsText.filter { it.isDigit() },
+                        value =
+                            repsText.filter {
+                                it.isDigit()
+                            },
 
                         onValueChange = { value ->
                             if (
@@ -1844,8 +1931,36 @@ private fun WorkoutOverview(
                             KeyboardOptions(
                                 keyboardType =
                                     KeyboardType.Number
+                            ),
+
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                unfocusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                focusedLabelColor =
+                                    ForceColors.Primary,
+
+                                unfocusedLabelColor =
+                                    ForceColors.TextSecondary,
+
+                                focusedBorderColor =
+                                    ForceColors.Primary,
+
+                                unfocusedBorderColor =
+                                    ForceColors.TextSecondary,
+
+                                cursorColor =
+                                    ForceColors.Primary
                             )
                     )
+
+                    // =================================================
+                    // REST
+                    // =================================================
 
                     OutlinedTextField(
                         value = restText,
@@ -1872,6 +1987,30 @@ private fun WorkoutOverview(
                             KeyboardOptions(
                                 keyboardType =
                                     KeyboardType.Number
+                            ),
+
+                        colors =
+                            OutlinedTextFieldDefaults.colors(
+                                focusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                unfocusedTextColor =
+                                    ForceColors.TextPrimary,
+
+                                focusedLabelColor =
+                                    ForceColors.Primary,
+
+                                unfocusedLabelColor =
+                                    ForceColors.TextSecondary,
+
+                                focusedBorderColor =
+                                    ForceColors.Primary,
+
+                                unfocusedBorderColor =
+                                    ForceColors.TextSecondary,
+
+                                cursorColor =
+                                    ForceColors.Primary
                             )
                     )
                 }
@@ -2040,7 +2179,14 @@ private fun WorkoutExerciseCard(
 
                     WorkoutPrescriptionValue(
                         label = "REPS",
-                        value = exercise.reps
+                        value =
+                            exercise.reps
+                                .replace(
+                                    " reps",
+                                    "",
+                                    ignoreCase = true
+                                )
+                                .trim()
                     )
 
                     WorkoutPrescriptionValue(

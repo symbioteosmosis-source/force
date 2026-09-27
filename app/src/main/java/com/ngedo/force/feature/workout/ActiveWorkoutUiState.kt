@@ -4,6 +4,8 @@ data class ActiveWorkoutUiState(
     val plannedExerciseNames: List<String> = emptyList(),
     val plannedExercises: List<PlannedWorkoutExercise> = emptyList(),
 
+    val plannedWorkoutId: Long? = null,
+
     val isWorkoutStarted: Boolean = false,
     val isWorkoutComplete: Boolean = false,
 

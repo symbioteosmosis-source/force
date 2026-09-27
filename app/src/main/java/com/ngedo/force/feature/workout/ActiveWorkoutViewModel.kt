@@ -12,11 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.ngedo.force.data.local.repository.ExerciseRepository
+import com.ngedo.force.data.repository.WorkoutPlanRepository
 
 @HiltViewModel
 class ActiveWorkoutViewModel @Inject constructor(
     private val workoutSessionRepository: WorkoutSessionRepository,
-    private val exerciseRepository: ExerciseRepository
+    private val exerciseRepository: ExerciseRepository,
+    private val workoutPlanRepository: WorkoutPlanRepository
 ) : ViewModel() {
 
     private var setsObserverJob: Job? = null
@@ -28,6 +30,44 @@ class ActiveWorkoutViewModel @Inject constructor(
     val uiState: StateFlow<ActiveWorkoutUiState> =
         _uiState.asStateFlow()
 
+    fun loadPlannedWorkout(
+        plannedWorkoutId: Long
+    ) {
+        if (
+            _uiState.value.isWorkoutStarted ||
+            _uiState.value.isWorkoutComplete
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+
+            val exercises =
+                workoutPlanRepository
+                    .getPlannedExercises(
+                        plannedWorkoutId
+                    )
+                    .map { exercise ->
+
+                        PlannedWorkoutExercise(
+                            name = exercise.exerciseName,
+                            target = exercise.target,
+                            sets = exercise.sets,
+                            reps = exercise.reps,
+                            restSeconds = exercise.restSeconds
+                        )
+                    }
+
+            if (exercises.isEmpty()) {
+                return@launch
+            }
+
+            startWorkoutSession(
+                plannedExercises = exercises,
+                plannedWorkoutId = plannedWorkoutId
+            )
+        }
+    }
     fun openExerciseDetails(
         exerciseName: String,
         onExerciseFound: (String) -> Unit
@@ -148,54 +188,117 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun startWorkout(
         plannedExercises: List<PlannedWorkoutExercise>
     ) {
-        restTimerJob?.cancel()
-
         if (plannedExercises.isEmpty()) {
             return
         }
 
         viewModelScope.launch {
 
-            val startedAt =
-                System.currentTimeMillis()
+            startWorkoutSession(
+                plannedExercises = plannedExercises,
+                plannedWorkoutId = null
+            )
+        }
+    }
 
-            val exerciseNames =
-                plannedExercises.map { it.name }
+    private suspend fun completePlannedWorkoutIfNeeded(
+        state: ActiveWorkoutUiState
+    ) {
 
-            val sessionId =
-                workoutSessionRepository.startSession(
-                    workoutId = 0L,
-                    startedAt = startedAt
-                )
+        val plannedWorkoutId =
+            state.plannedWorkoutId
+                ?: return
 
-            val exerciseIds =
-                exerciseNames.mapIndexed { index, name ->
+        val sessionId =
+            state.sessionId
+                ?: return
 
-                    workoutSessionRepository.addExercise(
-                        sessionId = sessionId,
-                        exerciseName = name,
-                        exerciseOrder = index
-                    )
-                }
+        workoutPlanRepository
+            .markWorkoutCompleted(
+                plannedWorkoutId =
+                    plannedWorkoutId,
+                sessionId =
+                    sessionId
+            )
+    }
 
-            val firstExercise =
-                plannedExercises.first()
+    private suspend fun startWorkoutSession(
+        plannedExercises: List<PlannedWorkoutExercise>,
+        plannedWorkoutId: Long?
+    ) {
+        restTimerJob?.cancel()
 
-            _uiState.value =
-                ActiveWorkoutUiState(
-                    isWorkoutStarted = true,
+        if (plannedExercises.isEmpty()) {
+            return
+        }
+
+        if (
+            _uiState.value.isWorkoutStarted ||
+            _uiState.value.isWorkoutComplete
+        ) {
+            return
+        }
+
+        val startedAt =
+            System.currentTimeMillis()
+
+        val exerciseNames =
+            plannedExercises.map {
+                it.name
+            }
+
+        val sessionId =
+            workoutSessionRepository.startSession(
+                workoutId = 0L,
+                startedAt = startedAt
+            )
+
+        val exerciseIds =
+            exerciseNames.mapIndexed {
+                    index,
+                    name ->
+
+                workoutSessionRepository.addExercise(
                     sessionId = sessionId,
-                    sessionStartedAt = startedAt,
-                    exerciseIds = exerciseIds,
-                    exerciseNames = exerciseNames,
-
-                    plannedExercises = plannedExercises,
-                    plannedExerciseNames = exerciseNames,
-
-                    isSessionReady = true
+                    exerciseName = name,
+                    exerciseOrder = index
                 )
+            }
 
-            exerciseIds.firstOrNull()?.let { exerciseId ->
+        val firstExercise =
+            plannedExercises.first()
+
+        _uiState.value =
+            ActiveWorkoutUiState(
+                plannedWorkoutId =
+                    plannedWorkoutId,
+
+                isWorkoutStarted = true,
+
+                sessionId =
+                    sessionId,
+
+                sessionStartedAt =
+                    startedAt,
+
+                exerciseIds =
+                    exerciseIds,
+
+                exerciseNames =
+                    exerciseNames,
+
+                plannedExercises =
+                    plannedExercises,
+
+                plannedExerciseNames =
+                    exerciseNames,
+
+                isSessionReady = true
+            )
+
+        exerciseIds
+            .firstOrNull()
+            ?.let { exerciseId ->
 
                 observeSetsForCurrentExercise(
                     exerciseId
@@ -213,7 +316,6 @@ class ActiveWorkoutViewModel @Inject constructor(
                     totalSets = firstExercise.sets
                 )
             }
-        }
     }
 
     fun completeSet(
@@ -374,6 +476,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                             sessionId = sessionId,
                             completedAt = completedAt,
                             durationSeconds = durationSeconds
+                        )
+                        completePlannedWorkoutIfNeeded(
+                            currentState
                         )
                     }
 
@@ -668,6 +773,27 @@ class ActiveWorkoutViewModel @Inject constructor(
             )
     }
 
+    fun replacePlannedExercises(
+        exercises: List<PlannedWorkoutExercise>
+    ) {
+
+        if (
+            _uiState.value.isWorkoutStarted ||
+            _uiState.value.isWorkoutComplete
+        ) {
+            return
+        }
+
+        _uiState.value =
+            _uiState.value.copy(
+                plannedExercises = exercises,
+                plannedExerciseNames =
+                    exercises.map {
+                        it.name
+                    }
+            )
+    }
+
     fun movePlannedExerciseUp(
         exerciseName: String
     ) {
@@ -812,6 +938,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                         sessionId = sessionId,
                         completedAt = completedAt,
                         durationSeconds = durationSeconds
+                    )
+
+                    completePlannedWorkoutIfNeeded(
+                        currentState
                     )
                 }
 

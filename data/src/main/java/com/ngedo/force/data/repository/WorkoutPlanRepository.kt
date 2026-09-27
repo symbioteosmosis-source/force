@@ -65,6 +65,16 @@ class WorkoutPlanRepository @Inject constructor(
             .observePlannedWorkouts(planId)
     }
 
+    suspend fun getPlannedWorkouts(
+        planId: Long
+    ): List<PlannedWorkoutEntity> {
+
+        return workoutPlanDao
+            .getPlannedWorkouts(
+                planId
+            )
+    }
+
     suspend fun getPlannedWorkout(
         plannedWorkoutId: Long
     ): PlannedWorkoutEntity? {
@@ -75,7 +85,40 @@ class WorkoutPlanRepository @Inject constructor(
             )
     }
 
+    suspend fun updateWorkoutPlan(
+        plan: WorkoutPlanEntity
+    ) {
+
+        workoutPlanDao
+            .insertWorkoutPlan(
+                plan
+            )
+    }
+
+    suspend fun deletePlannedWorkoutsForPlan(
+        planId: Long
+    ) {
+        workoutPlanDao
+            .deletePlannedWorkoutsForPlan(
+                planId
+            )
+    }
+
     suspend fun getWorkoutForDate(
+        planId: Long,
+        dayStart: Long,
+        dayEnd: Long
+    ): PlannedWorkoutEntity? {
+
+        return workoutPlanDao
+            .getWorkoutForDate(
+                planId = planId,
+                dayStart = dayStart,
+                dayEnd = dayEnd
+            )
+    }
+
+    suspend fun getWorkoutForToday(
         planId: Long,
         dayStart: Long,
         dayEnd: Long

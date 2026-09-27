@@ -21,6 +21,10 @@ sealed class ForceDestination(val route: String) {
 
     object WorkoutHistory : ForceDestination("workout_history")
 
+    object MonthlyPlan : ForceDestination(
+        route = "monthly_plan"
+    )
+
     object WorkoutHistoryDetail : ForceDestination(
             "workout_history_detail/{sessionId}"
         ) {

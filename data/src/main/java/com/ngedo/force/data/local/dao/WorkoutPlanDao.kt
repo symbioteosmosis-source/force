@@ -88,6 +88,17 @@ interface WorkoutPlanDao {
 
     @Query(
         """
+    SELECT * FROM planned_workouts
+    WHERE planId = :planId
+    ORDER BY scheduledDate ASC
+    """
+    )
+    suspend fun getPlannedWorkouts(
+        planId: Long
+    ): List<PlannedWorkoutEntity>
+
+    @Query(
+        """
         SELECT * FROM planned_workouts
         WHERE id = :plannedWorkoutId
         LIMIT 1
@@ -96,6 +107,16 @@ interface WorkoutPlanDao {
     suspend fun getPlannedWorkout(
         plannedWorkoutId: Long
     ): PlannedWorkoutEntity?
+
+    @Query(
+        """
+    DELETE FROM planned_workouts
+    WHERE planId = :planId
+    """
+    )
+    suspend fun deletePlannedWorkoutsForPlan(
+        planId: Long
+    )
 
     @Query(
         """
