@@ -68,6 +68,71 @@ class ActiveWorkoutViewModel @Inject constructor(
             )
         }
     }
+
+    fun previewPlannedWorkout(
+        plannedWorkoutId: Long
+    ) {
+
+        if (
+            _uiState.value.isWorkoutStarted ||
+            _uiState.value.isWorkoutComplete
+        ) {
+            return
+        }
+
+        viewModelScope.launch {
+
+            val exercises =
+                workoutPlanRepository
+                    .getPlannedExercises(
+                        plannedWorkoutId
+                    )
+                    .map { exercise ->
+
+                        PlannedWorkoutExercise(
+                            name = exercise.exerciseName,
+                            target = exercise.target,
+                            sets = exercise.sets,
+                            reps = exercise.reps,
+                            restSeconds = exercise.restSeconds
+                        )
+                    }
+
+            if (exercises.isEmpty()) {
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        plannedWorkoutId =
+                            plannedWorkoutId,
+
+                        plannedExercises =
+                            emptyList(),
+
+                        plannedExerciseNames =
+                            listOf(
+                                "DEBUG: ID $plannedWorkoutId HAS NO EXERCISES"
+                            )
+                    )
+
+                return@launch
+            }
+
+            _uiState.value =
+                _uiState.value.copy(
+                    plannedWorkoutId =
+                        plannedWorkoutId,
+
+                    plannedExercises =
+                        exercises,
+
+                    plannedExerciseNames =
+                        exercises.map {
+                            it.name
+                        }
+                )
+        }
+    }
+
     fun openExerciseDetails(
         exerciseName: String,
         onExerciseFound: (String) -> Unit
@@ -188,19 +253,26 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun startWorkout(
         plannedExercises: List<PlannedWorkoutExercise>
     ) {
+
         if (plannedExercises.isEmpty()) {
             return
         }
 
+        val plannedWorkoutId =
+            _uiState.value.plannedWorkoutId
+
         viewModelScope.launch {
 
             startWorkoutSession(
-                plannedExercises = plannedExercises,
-                plannedWorkoutId = null
+                plannedExercises =
+                    plannedExercises,
+
+                plannedWorkoutId =
+                    plannedWorkoutId
             )
         }
     }
-
+    
     private suspend fun completePlannedWorkoutIfNeeded(
         state: ActiveWorkoutUiState
     ) {

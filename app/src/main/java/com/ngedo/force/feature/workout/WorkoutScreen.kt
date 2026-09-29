@@ -127,8 +127,10 @@ fun WorkoutScreen(
     onExerciseLibraryClick: () -> Unit = {},
     onExerciseDetailsClick: (String) -> Unit = {},
     onMonthlyPlanClick: () -> Unit = {},
+    onWorkoutFinished: () -> Unit = {},
 
     plannedWorkoutId: Long? = null,
+    previewPlannedWorkoutId: Long? = null,
     onPlannedWorkoutLoaded: () -> Unit = {},
     plannedWorkoutExercises: List<PlannedWorkoutExercise>? = null,
 
@@ -152,6 +154,19 @@ fun WorkoutScreen(
             )
 
             onPlannedWorkoutLoaded()
+        }
+    }
+
+    LaunchedEffect(
+        previewPlannedWorkoutId
+    ) {
+
+        previewPlannedWorkoutId?.let { workoutId ->
+
+            workoutViewModel
+                .previewPlannedWorkout(
+                    workoutId
+                )
         }
     }
 
@@ -180,31 +195,23 @@ fun WorkoutScreen(
 
         if (
             plannedWorkoutId == null &&
+            previewPlannedWorkoutId == null &&
             !uiState.isWorkoutStarted &&
             !uiState.isWorkoutComplete &&
             uiState.plannedExercises.isEmpty()
         ) {
 
-            val exercises =
-                plannedWorkoutExercises
-                    ?.takeIf {
-                        it.isNotEmpty()
-                    }
-                    ?: todaysWorkout.map { exercise ->
+            plannedWorkoutExercises
+                ?.takeIf {
+                    it.isNotEmpty()
+                }
+                ?.let { exercises ->
 
-                        PlannedWorkoutExercise(
-                            name = exercise.name,
-                            target = exercise.target,
-                            sets = exercise.sets,
-                            reps = exercise.reps,
-                            restSeconds = exercise.restSeconds
+                    workoutViewModel
+                        .initializePlannedExercises(
+                            exercises
                         )
-                    }
-
-            workoutViewModel
-                .initializePlannedExercises(
-                    exercises
-                )
+                }
         }
     }
 
@@ -284,6 +291,7 @@ fun WorkoutScreen(
                 uiState = uiState,
                 onFinishWorkout = {
                     workoutViewModel.finishWorkout()
+                    onWorkoutFinished()
                 }
             )
         }

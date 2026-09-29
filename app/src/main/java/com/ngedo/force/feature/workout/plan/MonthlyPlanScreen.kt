@@ -142,11 +142,25 @@ fun MonthlyPlanScreen(
 // =========================================================
 
     val selectedWorkoutDay =
-        uiState.selectedWorkoutDay?.let { selectedDay ->
-            uiState.workoutDays.firstOrNull {
-                it.day == selectedDay
+        uiState.selectedPlannedWorkoutId
+            ?.let { plannedWorkoutId ->
+
+                uiState.workoutDays
+                    .firstOrNull {
+                        it.plannedWorkoutId ==
+                                plannedWorkoutId
+                    }
             }
-        }
+            ?: uiState.selectedWorkoutDay
+                ?.let { selectedDay ->
+
+                    uiState.workoutDays
+                        .firstOrNull {
+                            it.day == selectedDay &&
+                                    it.weekNumber ==
+                                    uiState.selectedWeek
+                        }
+                }
 
     selectedWorkoutDay?.let { workoutDay ->
 
@@ -171,7 +185,7 @@ fun MonthlyPlanScreen(
             onAddExercises = {
 
                 viewModel.selectWorkoutDay(
-                    workoutDay.day
+                    workoutDay
                 )
 
                 onAddExercises(
@@ -245,6 +259,20 @@ fun MonthlyPlanScreen(
             planName = uiState.planName,
             goal = uiState.goal,
 
+            selectedWeek =
+                uiState.selectedWeek,
+
+            totalWeeks =
+                uiState.totalWeeks,
+
+            onPreviousWeek = {
+                viewModel.previousWeek()
+            },
+
+            onNextWeek = {
+                viewModel.nextWeek()
+            },
+
             workoutDays =
                 uiState.workoutDays.filter {
                     it.day in uiState.trainingDays
@@ -276,15 +304,14 @@ fun MonthlyPlanScreen(
                     val todayDay =
                         uiState.workoutDays
                             .firstOrNull {
-                                it.name.equals(
-                                    todayWorkout.workoutName,
-                                    ignoreCase = true
-                                )
+                                it.plannedWorkoutId ==
+                                        todayWorkout.plannedWorkoutId
                             }
 
-                    todayDay?.let {
+                    todayDay?.let { workoutDay ->
+
                         viewModel.selectWorkoutDay(
-                            it.day
+                            workoutDay
                         )
                     }
                 }
@@ -293,7 +320,7 @@ fun MonthlyPlanScreen(
             onOpenDay = { workoutDay ->
 
                 viewModel.selectWorkoutDay(
-                    workoutDay.day
+                    workoutDay
                 )
             }
         )
@@ -322,7 +349,7 @@ fun MonthlyPlanScreen(
             onAddExercises = { workoutDay ->
 
                 viewModel.selectWorkoutDay(
-                    workoutDay.day
+                    workoutDay
                 )
 
                 onAddExercises(

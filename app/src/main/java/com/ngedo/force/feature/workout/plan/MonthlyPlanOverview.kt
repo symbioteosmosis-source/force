@@ -20,19 +20,95 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ngedo.force.designsystem.ForceColors
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun MonthlyPlanOverview(
     planName: String,
     goal: String,
     workoutDays: List<PlanWorkoutDay>,
+
+    selectedWeek: Int,
+    totalWeeks: Int,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit,
+
     todayWorkout: TodayPlannedWorkout?,
     onBack: () -> Unit,
     onEditPlan: () -> Unit,
     onViewTodayWorkout: () -> Unit,
     onStartWorkout: (Long) -> Unit,
     onOpenDay: (PlanWorkoutDay) -> Unit
-) {
+){
+
+    val scheduleDateFormatter =
+        SimpleDateFormat(
+            "EEE, dd MMM yyyy",
+            Locale.getDefault()
+        )
+
+
+
+    val weekRangeFormatter =
+        SimpleDateFormat(
+            "dd MMM",
+            Locale.getDefault()
+        )
+
+    val selectedWeekDates =
+        workoutDays
+            .filter {
+                it.weekNumber == selectedWeek
+            }
+            .mapNotNull {
+                it.scheduledDate
+            }
+
+    val selectedWeekRange =
+        if (selectedWeekDates.isNotEmpty()) {
+
+            val calendar =
+                java.util.Calendar.getInstance().apply {
+                    timeInMillis =
+                        selectedWeekDates.minOrNull()!!
+                }
+
+            val dayOfWeek =
+                calendar.get(
+                    java.util.Calendar.DAY_OF_WEEK
+                )
+
+            val daysFromMonday =
+                when (dayOfWeek) {
+                    java.util.Calendar.SUNDAY -> 6
+                    else ->
+                        dayOfWeek -
+                                java.util.Calendar.MONDAY
+                }
+
+            calendar.add(
+                java.util.Calendar.DAY_OF_MONTH,
+                -daysFromMonday
+            )
+
+            val weekStart =
+                calendar.timeInMillis
+
+            calendar.add(
+                java.util.Calendar.DAY_OF_MONTH,
+                6
+            )
+
+            val weekEnd =
+                calendar.timeInMillis
+
+            "${weekRangeFormatter.format(weekStart)} – " +
+                    weekRangeFormatter.format(weekEnd)
+
+        } else {
+            null
+        }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -95,9 +171,9 @@ fun MonthlyPlanOverview(
 
                     Column(
                         modifier =
-                            Modifier.padding(18.dp),
+                            Modifier.padding(14.dp),
                         verticalArrangement =
-                            Arrangement.spacedBy(8.dp)
+                            Arrangement.spacedBy(6.dp)
                     ) {
 
                         Text(
@@ -137,44 +213,62 @@ fun MonthlyPlanOverview(
 
                             workout.exerciseCount > 0 -> {
 
-                                OutlinedButton(
-                                    onClick = onViewTodayWorkout,
+                                Row(
                                     modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp)
+                                        Modifier.fillMaxWidth(),
+
+                                    horizontalArrangement =
+                                        Arrangement.spacedBy(10.dp)
                                 ) {
 
-                                    Text(
-                                        text = "VIEW WORKOUT",
-                                        color = ForceColors.TextPrimary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                    OutlinedButton(
+                                        onClick =
+                                            onViewTodayWorkout,
 
-                                Button(
-                                    onClick = {
-                                        onStartWorkout(
-                                            workout.plannedWorkoutId
+                                        modifier =
+                                            Modifier
+                                                .weight(1f)
+                                                .height(44.dp)
+                                    ) {
+
+                                        Text(
+                                            text = "VIEW",
+                                            color =
+                                                ForceColors.TextPrimary,
+                                            fontWeight =
+                                                FontWeight.Bold
                                         )
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
-                                    colors =
-                                        androidx.compose.material3.ButtonDefaults
-                                            .buttonColors(
-                                                containerColor =
-                                                    ForceColors.Primary
-                                            )
-                                ) {
+                                    }
 
-                                    Text(
-                                        text = "START WORKOUT",
-                                        color = ForceColors.Background,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Button(
+                                        onClick = {
+                                            onStartWorkout(
+                                                workout.plannedWorkoutId
+                                            )
+                                        },
+
+                                        modifier =
+                                            Modifier
+                                                .weight(1f)
+                                                .height(44.dp),
+
+                                        colors =
+                                            androidx.compose.material3
+                                                .ButtonDefaults
+                                                .buttonColors(
+                                                    containerColor =
+                                                        ForceColors.Primary
+                                                )
+                                    ) {
+
+                                        Text(
+                                            text = "START",
+                                            color =
+                                                ForceColors.Background,
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
 
@@ -198,6 +292,66 @@ fun MonthlyPlanOverview(
                 )
             }
 
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.SpaceBetween
+            ) {
+
+                OutlinedButton(
+                    onClick = onPreviousWeek,
+                    enabled = selectedWeek > 1
+                ) {
+                    Text("‹")
+                }
+
+                Column(
+                    horizontalAlignment =
+                        androidx.compose.ui.Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        text =
+                            "WEEK $selectedWeek OF $totalWeeks",
+                        color =
+                            ForceColors.TextPrimary,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    selectedWeekRange?.let { range ->
+
+                        Spacer(
+                            modifier = Modifier.height(3.dp)
+                        )
+
+                        Text(
+                            text = range.uppercase(),
+                            color = ForceColors.Primary,
+                            style =
+                                MaterialTheme.typography.labelMedium,
+                            fontWeight =
+                                FontWeight.Bold
+                        )
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = onNextWeek,
+                    enabled =
+                        selectedWeek < totalWeeks
+                ) {
+                    Text("›")
+                }
+            }
+
+            Spacer(
+                modifier =
+                    Modifier.height(20.dp)
+            )
+
             Text(
                 text = "YOUR SCHEDULE",
                 color = ForceColors.TextSecondary,
@@ -217,9 +371,17 @@ fun MonthlyPlanOverview(
             ) {
 
                 items(
-                    items = workoutDays,
-                    key = { it.day }
-                ) { workoutDay ->
+                    items =
+                        workoutDays.filter {
+                            it.weekNumber ==
+                                    selectedWeek
+                        },
+
+                    key = { workoutDay ->
+                        workoutDay.plannedWorkoutId
+                            ?: "${workoutDay.weekNumber}-${workoutDay.day}"
+                    }
+                ){ workoutDay ->
 
                     Surface(
                         modifier =
@@ -234,16 +396,58 @@ fun MonthlyPlanOverview(
                                 Modifier.padding(16.dp)
                         ) {
 
-                            Text(
-                                text =
-                                    workoutDay.name.uppercase(),
-                                color =
-                                    ForceColors.TextPrimary,
-                                style =
-                                    MaterialTheme.typography.titleMedium,
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
+                            Column {
+
+                                workoutDay.scheduledDate?.let { scheduledDate ->
+
+                                    Text(
+                                        text =
+                                            scheduleDateFormatter
+                                                .format(scheduledDate)
+                                                .uppercase(),
+                                        color = ForceColors.Primary,
+                                        style =
+                                            MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Spacer(
+                                        modifier = Modifier.height(4.dp)
+                                    )
+                                }
+
+                                Row(
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+
+                                    horizontalArrangement =
+                                        Arrangement.SpaceBetween
+                                ) {
+
+                                    Text(
+                                        text =
+                                            workoutDay.name.uppercase(),
+                                        color =
+                                            ForceColors.TextPrimary,
+                                        style =
+                                            MaterialTheme.typography.titleMedium,
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+
+                                    if (workoutDay.isCompleted) {
+
+                                        Text(
+                                            text = "✓ COMPLETED",
+                                            color = ForceColors.Success,
+                                            style =
+                                                MaterialTheme.typography.labelMedium,
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
 
                             Spacer(
                                 modifier =

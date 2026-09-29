@@ -24,11 +24,69 @@ import com.ngedo.force.designsystem.components.ForceTopBar
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import com.ngedo.force.navigation.ForceDestination
+import java.time.LocalTime
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ngedo.force.feature.profile.ProfileViewModel
+import com.ngedo.force.feature.workout.plan.MonthlyPlanViewModel
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @Composable
 fun HomeScreen(
-    onNavigate: (ForceDestination) -> Unit
+    onNavigate: (ForceDestination) -> Unit,
+    onViewTodayWorkout: (Long) -> Unit,
+    onStartTodayWorkout: (Long) -> Unit,
+    profileViewModel: ProfileViewModel = hiltViewModel(),
+    monthlyPlanViewModel: MonthlyPlanViewModel = hiltViewModel()
 ) {
+
+    val profileState by
+    profileViewModel.uiState.collectAsState()
+
+    val monthlyPlanState by
+    monthlyPlanViewModel.uiState.collectAsState()
+
+    val todayWorkout =
+        monthlyPlanState.todayWorkout
+
+    val lifecycleOwner =
+        LocalLifecycleOwner.current
+
+    DisposableEffect(
+        lifecycleOwner,
+        monthlyPlanViewModel
+    ) {
+
+        val observer =
+            LifecycleEventObserver { _, event ->
+
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    monthlyPlanViewModel
+                        .refreshTodayWorkout()
+                }
+            }
+
+        lifecycleOwner.lifecycle
+            .addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle
+                .removeObserver(observer)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -43,8 +101,13 @@ fun HomeScreen(
     ) {
 
         ForceTopBar(
-            greeting = "Good Evening 👋",
-            userName = "Layton"
+            greeting = getGreeting(),
+            userName =
+                profileState.name
+                    .trim()
+                    .ifBlank {
+                        "FORCE Athlete"
+                    }
         )
 
         ForceProgressCard(
@@ -58,10 +121,120 @@ fun HomeScreen(
             value = "686 kcal"
         )
 
-        ForceStatCard(
-            title = "💪 Workout",
-            value = "Chest & Triceps"
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = ForceColors.Surface,
+                    shape = RoundedCornerShape(18.dp)
+                )
+                .padding(20.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp)
+        ) {
+
+            Text(
+                text = "TODAY'S WORKOUT",
+                color = ForceColors.TextSecondary
+            )
+
+            when {
+
+                todayWorkout == null -> {
+
+                    Text(
+                        text = "Rest Day",
+                        color = ForceColors.TextPrimary,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "No workout scheduled for today",
+                        color = ForceColors.TextSecondary
+                    )
+                }
+
+                todayWorkout.isCompleted -> {
+
+                    Text(
+                        text = todayWorkout.workoutName,
+                        color = ForceColors.TextPrimary,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "✓ WORKOUT COMPLETED",
+                        color = ForceColors.Success,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                else -> {
+
+                    Text(
+                        text = todayWorkout.workoutName,
+                        color = ForceColors.TextPrimary,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text =
+                            "${todayWorkout.exerciseCount} exercises",
+                        color = ForceColors.Primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(4.dp)
+                    )
+
+                    OutlinedButton(
+                        onClick = {
+                            onViewTodayWorkout(
+                                todayWorkout.plannedWorkoutId
+                            )
+                        },
+
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+
+                        Text(
+                            text = "VIEW WORKOUT",
+                            color = ForceColors.TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            onStartTodayWorkout(
+                                todayWorkout.plannedWorkoutId
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor =
+                                    ForceColors.Primary
+                            )
+                    ) {
+
+                        Text(
+                            text = "START WORKOUT",
+                            color = ForceColors.Background,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
 
         ForceStatCard(
             title = "💧 Water",
@@ -127,4 +300,24 @@ fun HomeScreen(
             )
         }
     }
+
 }
+
+private fun getGreeting(): String {
+
+    val hour =
+        LocalTime.now().hour
+
+    return when (hour) {
+
+        in 5..11 ->
+            "Good morning 👋"
+
+        in 12..16 ->
+            "Good afternoon 👋"
+
+        else ->
+            "Good evening 👋"
+    }
+}
+

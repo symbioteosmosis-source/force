@@ -9,6 +9,11 @@ data class MonthlyPlanUiState(
     val workoutDays: List<PlanWorkoutDay> = emptyList(),
     val selectedWorkoutDay: Int? = null,
 
+    val selectedPlannedWorkoutId: Long? = null,
+
+    val selectedWeek: Int = 1,
+    val totalWeeks: Int = 1,
+
     val isConfiguringWorkouts: Boolean = false,
     val isEditingPlan: Boolean = false,
 

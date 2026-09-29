@@ -98,6 +98,19 @@ class MonthlyPlanViewModel @Inject constructor(
             )
     }
 
+    fun refreshTodayWorkout() {
+
+        val activePlanId =
+            _uiState.value.activePlanId
+                ?: return
+
+        viewModelScope.launch {
+            loadTodayWorkout(
+                activePlanId
+            )
+        }
+    }
+
     private fun saveDraft() {
 
         val state =
@@ -210,7 +223,7 @@ class MonthlyPlanViewModel @Inject constructor(
 
                 val workoutDays =
                     plannedWorkouts
-                        .groupBy { plannedWorkout ->
+                        .map { plannedWorkout ->
 
                             val calendar =
                                 Calendar.getInstance().apply {
@@ -218,35 +231,30 @@ class MonthlyPlanViewModel @Inject constructor(
                                         plannedWorkout.scheduledDate
                                 }
 
-                            when (
-                                calendar.get(
-                                    Calendar.DAY_OF_WEEK
-                                )
-                            ) {
-                                Calendar.MONDAY -> 1
-                                Calendar.TUESDAY -> 2
-                                Calendar.WEDNESDAY -> 3
-                                Calendar.THURSDAY -> 4
-                                Calendar.FRIDAY -> 5
-                                Calendar.SATURDAY -> 6
-                                Calendar.SUNDAY -> 7
-                                else -> 0
-                            }
-                        }
-                        .mapNotNull { (day, workouts) ->
+                            val day =
+                                when (
+                                    calendar.get(
+                                        Calendar.DAY_OF_WEEK
+                                    )
+                                ) {
+                                    Calendar.MONDAY -> 1
+                                    Calendar.TUESDAY -> 2
+                                    Calendar.WEDNESDAY -> 3
+                                    Calendar.THURSDAY -> 4
+                                    Calendar.FRIDAY -> 5
+                                    Calendar.SATURDAY -> 6
+                                    Calendar.SUNDAY -> 7
+                                    else -> 0
+                                }
 
                             if (day == 0) {
-                                return@mapNotNull null
+                                return@map null
                             }
-
-                            val representativeWorkout =
-                                workouts.firstOrNull()
-                                    ?: return@mapNotNull null
 
                             val exercises =
                                 workoutPlanRepository
                                     .getPlannedExercises(
-                                        representativeWorkout.id
+                                        plannedWorkout.id
                                     )
                                     .sortedBy {
                                         it.exerciseOrder
@@ -276,13 +284,124 @@ class MonthlyPlanViewModel @Inject constructor(
 
                             PlanWorkoutDay(
                                 day = day,
-                                name = representativeWorkout.name,
-                                exercises = exercises
+                                name = plannedWorkout.name,
+                                exercises = exercises,
+
+                                plannedWorkoutId = plannedWorkout.id,
+                                weekNumber = plannedWorkout.weekNumber,
+                                scheduledDate = plannedWorkout.scheduledDate,
+                                isCompleted = plannedWorkout.isCompleted
                             )
                         }
-                        .sortedBy {
-                            it.day
+                        .filterNotNull()
+                        .sortedWith(
+                            compareBy<PlanWorkoutDay> {
+                                it.weekNumber
+                            }.thenBy {
+                                it.scheduledDate
+                                    ?: Long.MAX_VALUE
+                            }
+                        )
+
+                val totalWeeks =
+                    workoutDays
+                        .maxOfOrNull {
+                            it.weekNumber
                         }
+                        ?.coerceAtLeast(1)
+                        ?: 1
+
+                val now =
+                    System.currentTimeMillis()
+
+                val todayCalendar =
+                    Calendar.getInstance().apply {
+                        timeInMillis = now
+
+                        set(
+                            Calendar.HOUR_OF_DAY,
+                            0
+                        )
+
+                        set(
+                            Calendar.MINUTE,
+                            0
+                        )
+
+                        set(
+                            Calendar.SECOND,
+                            0
+                        )
+
+                        set(
+                            Calendar.MILLISECOND,
+                            0
+                        )
+                    }
+
+                val today =
+                    todayCalendar.timeInMillis
+
+                val currentWeek =
+                    workoutDays
+                        .filter {
+                            it.scheduledDate != null
+                        }
+                        .groupBy {
+                            it.weekNumber
+                        }
+                        .entries
+                        .firstOrNull { (_, days) ->
+
+                            val firstDate =
+                                days
+                                    .mapNotNull {
+                                        it.scheduledDate
+                                    }
+                                    .minOrNull()
+                                    ?: return@firstOrNull false
+
+                            val calendar =
+                                Calendar.getInstance().apply {
+                                    timeInMillis = firstDate
+                                }
+
+                            val dayOfWeek =
+                                calendar.get(
+                                    Calendar.DAY_OF_WEEK
+                                )
+
+                            val daysFromMonday =
+                                when (dayOfWeek) {
+
+                                    Calendar.SUNDAY -> 6
+
+                                    else ->
+                                        dayOfWeek -
+                                                Calendar.MONDAY
+                                }
+
+                            calendar.add(
+                                Calendar.DAY_OF_MONTH,
+                                -daysFromMonday
+                            )
+
+                            val weekStart =
+                                calendar.timeInMillis
+
+                            calendar.add(
+                                Calendar.DAY_OF_MONTH,
+                                7
+                            )
+
+                            val nextWeekStart =
+                                calendar.timeInMillis
+
+                            today >= weekStart &&
+                                    today < nextWeekStart
+                        }
+                        ?.key
+                        ?: 1
 
                 _uiState.value =
                     _uiState.value.copy(
@@ -303,6 +422,9 @@ class MonthlyPlanViewModel @Inject constructor(
                         workoutDays =
                             workoutDays,
 
+                        selectedWeek = currentWeek,
+                        totalWeeks = totalWeeks,
+
                         isLoadingPlan = false
                     )
 
@@ -322,6 +444,43 @@ class MonthlyPlanViewModel @Inject constructor(
             }
         }
     }
+
+    fun previousWeek() {
+
+        val currentWeek =
+            _uiState.value.selectedWeek
+
+        if (currentWeek <= 1) {
+            return
+        }
+
+        _uiState.value =
+            _uiState.value.copy(
+                selectedWeek =
+                    currentWeek - 1
+            )
+    }
+
+
+    fun nextWeek() {
+
+        val state =
+            _uiState.value
+
+        if (
+            state.selectedWeek >=
+            state.totalWeeks
+        ) {
+            return
+        }
+
+        _uiState.value =
+            state.copy(
+                selectedWeek =
+                    state.selectedWeek + 1
+            )
+    }
+
     fun updatePlanName(
         name: String
     ) {
@@ -565,18 +724,24 @@ class MonthlyPlanViewModel @Inject constructor(
     }
 
     fun selectWorkoutDay(
-        day: Int
+        workoutDay: PlanWorkoutDay
     ) {
         _uiState.value =
             _uiState.value.copy(
-                selectedWorkoutDay = day
+                selectedWorkoutDay =
+                    workoutDay.day,
+
+                selectedPlannedWorkoutId =
+                    workoutDay.plannedWorkoutId
             )
     }
 
     fun clearSelectedWorkoutDay() {
+
         _uiState.value =
             _uiState.value.copy(
-                selectedWorkoutDay = null
+                selectedWorkoutDay = null,
+                selectedPlannedWorkoutId = null
             )
     }
 
@@ -590,14 +755,135 @@ class MonthlyPlanViewModel @Inject constructor(
             state.activePlanId != null &&
             !state.isEditingPlan
         ) {
-            savePlan(
-                stayOnCurrentScreen = true
-            )
+            updateExistingScheduledDay()
         } else {
             saveDraft()
         }
     }
 
+    private fun updateExistingScheduledDay() {
+
+        val state =
+            _uiState.value
+
+        val plannedWorkoutId =
+            state.selectedPlannedWorkoutId
+                ?: return
+
+        val workoutDay =
+            state.workoutDays
+                .firstOrNull {
+                    it.plannedWorkoutId ==
+                            plannedWorkoutId
+                }
+                ?: return
+
+        viewModelScope.launch {
+
+            try {
+
+                val plannedWorkout =
+                    workoutPlanRepository
+                        .getPlannedWorkout(
+                            plannedWorkoutId
+                        )
+                        ?: return@launch
+
+                val exercises =
+                    workoutDay.exercises
+                        .mapIndexed { index, exercise ->
+
+                            PlannedExerciseEntity(
+                                plannedWorkoutId =
+                                    plannedWorkoutId,
+
+                                exerciseId =
+                                    exercise.exerciseId,
+
+                                exerciseName =
+                                    exercise.exerciseName,
+
+                                target =
+                                    exercise.target,
+
+                                exerciseOrder =
+                                    index,
+
+                                sets =
+                                    exercise.sets,
+
+                                reps =
+                                    exercise.reps,
+
+                                restSeconds =
+                                    exercise.restSeconds
+                            )
+                        }
+
+                workoutPlanRepository
+                    .replacePlannedExercises(
+                        plannedWorkoutId =
+                            plannedWorkoutId,
+
+                        exercises =
+                            exercises
+                    )
+
+                if (plannedWorkout.isCompleted) {
+
+                    workoutPlanRepository
+                        .markWorkoutIncomplete(
+                            plannedWorkoutId
+                        )
+                }
+
+                state.activePlanId?.let { planId ->
+
+                    loadTodayWorkout(
+                        planId
+                    )
+                }
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        showSavedConfirmation = true
+                    )
+
+            } catch (exception: Exception) {
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        errorMessage =
+                            exception.message
+                                ?: "Unable to update workout."
+                    )
+            }
+        }
+    }
+
+    private fun isSelectedWorkoutDay(
+        workoutDay: PlanWorkoutDay
+    ): Boolean {
+
+        val state =
+            _uiState.value
+
+        val selectedPlannedWorkoutId =
+            state.selectedPlannedWorkoutId
+
+        return if (selectedPlannedWorkoutId != null) {
+
+            workoutDay.plannedWorkoutId ==
+                    selectedPlannedWorkoutId
+
+        } else {
+
+            workoutDay.day ==
+                    state.selectedWorkoutDay &&
+                    workoutDay.weekNumber ==
+                    state.selectedWeek
+        }
+    }
     fun addExerciseToSelectedDay(
         exerciseId: String,
         exerciseName: String,
@@ -611,7 +897,7 @@ class MonthlyPlanViewModel @Inject constructor(
         val updatedWorkoutDays =
             _uiState.value.workoutDays.map { workoutDay ->
 
-                if (workoutDay.day != selectedDay) {
+                if (!isSelectedWorkoutDay(workoutDay)) {
                     workoutDay
                 } else {
 
@@ -655,7 +941,7 @@ class MonthlyPlanViewModel @Inject constructor(
         val updatedWorkoutDays =
             _uiState.value.workoutDays.map { workoutDay ->
 
-                if (workoutDay.day != selectedDay) {
+                if (!isSelectedWorkoutDay(workoutDay)) {
                     workoutDay
                 } else {
                     workoutDay.copy(
@@ -688,7 +974,7 @@ class MonthlyPlanViewModel @Inject constructor(
         val updatedWorkoutDays =
             _uiState.value.workoutDays.map { workoutDay ->
 
-                if (workoutDay.day != selectedDay) {
+                if (!isSelectedWorkoutDay(workoutDay)) {
                     workoutDay
                 } else {
                     workoutDay.copy(
@@ -749,10 +1035,9 @@ class MonthlyPlanViewModel @Inject constructor(
         val updatedWorkoutDays =
             _uiState.value.workoutDays.map { workoutDay ->
 
-                if (workoutDay.day != selectedDay) {
+                if (!isSelectedWorkoutDay(workoutDay)) {
                     workoutDay
                 } else {
-
                     val exercises =
                         workoutDay.exercises.toMutableList()
 
@@ -878,6 +1163,20 @@ class MonthlyPlanViewModel @Inject constructor(
                     endDate = endDate,
                     workoutDays = selectedWorkoutDays
                 )
+
+                /*
+                 * Refresh today's workout after rebuilding
+                 * the active plan.
+                 *
+                 * This keeps Home and Monthly Plan using
+                 * the same completion state.
+                 */
+                loadTodayWorkout(
+                    planId
+                )
+
+                monthlyPlanDraftRepository
+                    .clearDraft()
 
                 monthlyPlanDraftRepository
                     .clearDraft()
@@ -1122,77 +1421,13 @@ class MonthlyPlanViewModel @Inject constructor(
         onWorkoutReady: (Long) -> Unit
     ) {
 
-        val state = _uiState.value
-
-        val planId =
-            state.activePlanId
+        val plannedWorkoutId =
+            _uiState.value
+                .selectedPlannedWorkoutId
                 ?: return
 
-        val selectedDay =
-            state.selectedWorkoutDay
-                ?: return
-
-        viewModelScope.launch {
-
-            val workouts =
-                workoutPlanRepository
-                    .getPlannedWorkouts(planId)
-
-            val todayStart =
-                Calendar.getInstance().apply {
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
-
-            val matchingWorkouts =
-                workouts.filter { workout ->
-
-                    val calendar =
-                        Calendar.getInstance().apply {
-                            timeInMillis =
-                                workout.scheduledDate
-                        }
-
-                    val forceDay =
-                        when (
-                            calendar.get(
-                                Calendar.DAY_OF_WEEK
-                            )
-                        ) {
-                            Calendar.MONDAY -> 1
-                            Calendar.TUESDAY -> 2
-                            Calendar.WEDNESDAY -> 3
-                            Calendar.THURSDAY -> 4
-                            Calendar.FRIDAY -> 5
-                            Calendar.SATURDAY -> 6
-                            Calendar.SUNDAY -> 7
-                            else -> 0
-                        }
-
-                    forceDay == selectedDay
-                }
-
-            val matchingWorkout =
-                matchingWorkouts
-                    .filter {
-                        it.scheduledDate >= todayStart
-                    }
-                    .minByOrNull {
-                        it.scheduledDate
-                    }
-                    ?: matchingWorkouts
-                        .maxByOrNull {
-                            it.scheduledDate
-                        }
-
-            matchingWorkout?.let { workout ->
-
-                onWorkoutReady(
-                    workout.id
-                )
-            }
-        }
+        onWorkoutReady(
+            plannedWorkoutId
+        )
     }
 }

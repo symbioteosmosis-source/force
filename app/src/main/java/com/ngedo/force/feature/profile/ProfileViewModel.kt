@@ -13,6 +13,7 @@ import com.ngedo.force.feature.nutrition.NutritionRecommendation
 import com.ngedo.force.feature.nutrition.NutritionRecommendationCalculator
 import com.ngedo.force.data.local.repository.NutritionRepository
 
+
 data class ProfileUiState(
     val name: String = "",
     val ageInput: String = "",

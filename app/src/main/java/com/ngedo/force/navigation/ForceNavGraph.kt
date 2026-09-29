@@ -37,6 +37,14 @@ fun ForceNavGraph() {
     val navController =
         rememberNavController()
 
+    val monthlyPlanViewModel =
+        hiltViewModel<MonthlyPlanViewModel>()
+
+    val monthlyPlanState by
+    monthlyPlanViewModel
+        .uiState
+        .collectAsState()
+
     val navBackStackEntry by
     navController.currentBackStackEntryAsState()
 
@@ -151,19 +159,54 @@ fun ForceNavGraph() {
                          * bottom navigation destinations.
                          */
 
-                        navController.navigate(
-                            destination.route
+                        if (
+                            destination ==
+                            ForceDestination.Workout
                         ) {
 
-                            popUpTo(
-                                ForceDestination.Home.route
+                            navController.navigate(
+                                ForceDestination.Workout.baseRoute
                             ) {
-                                saveState = true
+
+                                popUpTo(
+                                    ForceDestination.Home.route
+                                ) {
+                                    saveState = true
+                                }
+
+                                launchSingleTop = true
+                                restoreState = true
                             }
 
-                            launchSingleTop = true
+                            monthlyPlanState
+                                .todayWorkout
+                                ?.plannedWorkoutId
+                                ?.let { plannedWorkoutId ->
 
-                            restoreState = true
+                                    navController
+                                        .getBackStackEntry(
+                                            ForceDestination.Workout.baseRoute
+                                        )
+                                        .savedStateHandle[
+                                        "preview_planned_workout_id"
+                                    ] = plannedWorkoutId
+                                }
+
+                        } else {
+
+                            navController.navigate(
+                                destination.route
+                            ) {
+
+                                popUpTo(
+                                    ForceDestination.Home.route
+                                ) {
+                                    saveState = true
+                                }
+
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 )
@@ -210,9 +253,33 @@ fun ForceNavGraph() {
                         navController.navigate(
                             destination.route
                         ) {
-
                             launchSingleTop = true
                         }
+                    },
+
+                    onViewTodayWorkout = { plannedWorkoutId ->
+
+                        navController.navigate(
+                            ForceDestination.Workout.baseRoute
+                        ) {
+                            launchSingleTop = true
+                        }
+
+                        navController
+                            .getBackStackEntry(
+                                ForceDestination.Workout.baseRoute
+                            )
+                            .savedStateHandle[
+                            "preview_planned_workout_id"
+                        ] = plannedWorkoutId
+                    },
+
+                    onStartTodayWorkout = { plannedWorkoutId ->
+
+                        navController.navigate(
+                            ForceDestination.Workout
+                                .createRoute(plannedWorkoutId)
+                        )
                     }
                 )
             }
@@ -225,15 +292,37 @@ fun ForceNavGraph() {
              */
 
             composable(
-                route =
-                    ForceDestination.Workout.route
+                route = ForceDestination.Workout.route,
+
+                arguments = listOf(
+                    navArgument(
+                        "plannedWorkoutId"
+                    ) {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
             ) { backStackEntry ->
+
+                val routePlannedWorkoutId =
+                    backStackEntry.arguments
+                        ?.getLong("plannedWorkoutId")
+                        ?.takeIf { it > 0L }
 
                 val plannedWorkoutId by
                 backStackEntry
                     .savedStateHandle
                     .getStateFlow<Long?>(
                         "planned_workout_id",
+                        null
+                    )
+                    .collectAsState()
+
+                val previewPlannedWorkoutId by
+                backStackEntry
+                    .savedStateHandle
+                    .getStateFlow<Long?>(
+                        "preview_planned_workout_id",
                         null
                     )
                     .collectAsState()
@@ -259,7 +348,26 @@ fun ForceNavGraph() {
                 WorkoutScreen(
 
                     plannedWorkoutId =
-                        plannedWorkoutId,
+                        routePlannedWorkoutId
+                            ?: plannedWorkoutId,
+
+                    previewPlannedWorkoutId =
+                        previewPlannedWorkoutId,
+
+                    onWorkoutFinished = {
+
+                        navController.navigate(
+                            ForceDestination.Home.route
+                        ) {
+                            popUpTo(
+                                ForceDestination.Home.route
+                            ) {
+                                inclusive = false
+                            }
+
+                            launchSingleTop = true
+                        }
+                    },
 
                     onPlannedWorkoutLoaded = {
 
@@ -341,7 +449,7 @@ fun ForceNavGraph() {
                 val workoutEntry =
                     remember(backStackEntry) {
                         navController.getBackStackEntry(
-                            ForceDestination.Workout.route
+                            ForceDestination.Workout.baseRoute
                         )
                     }
 
@@ -437,7 +545,7 @@ fun ForceNavGraph() {
                 val workoutEntry =
                     remember(backStackEntry) {
                         navController.getBackStackEntry(
-                            ForceDestination.Workout.route
+                            ForceDestination.Workout.baseRoute
                         )
                     }
 
@@ -546,7 +654,7 @@ fun ForceNavGraph() {
 
                         navController
                             .getBackStackEntry(
-                                ForceDestination.Workout.route
+                                ForceDestination.Workout.baseRoute
                             )
                             .savedStateHandle[
                             "planned_workout_id"
@@ -554,7 +662,7 @@ fun ForceNavGraph() {
 
                         navController.popBackStack(
                             route =
-                                ForceDestination.Workout.route,
+                                ForceDestination.Workout.baseRoute,
                             inclusive = false
                         )
                     }
@@ -593,9 +701,21 @@ fun ForceNavGraph() {
                 planViewModel.uiState.collectAsState()
 
                 val workoutDay =
-                    planState.workoutDays.firstOrNull {
-                        it.day == day
-                    }
+                    planState.selectedPlannedWorkoutId
+                        ?.let { plannedWorkoutId ->
+
+                            planState.workoutDays
+                                .firstOrNull {
+                                    it.plannedWorkoutId ==
+                                            plannedWorkoutId
+                                }
+                        }
+                        ?: planState.workoutDays
+                            .firstOrNull {
+                                it.day == day &&
+                                        it.weekNumber ==
+                                        planState.selectedWeek
+                            }
 
                 val addedExerciseNames =
                     workoutDay
@@ -673,10 +793,21 @@ fun ForceNavGraph() {
                 planViewModel.uiState.collectAsState()
 
                 val workoutDay =
-                    planState.workoutDays
-                        .firstOrNull {
-                            it.day == day
+                    planState.selectedPlannedWorkoutId
+                        ?.let { plannedWorkoutId ->
+
+                            planState.workoutDays
+                                .firstOrNull {
+                                    it.plannedWorkoutId ==
+                                            plannedWorkoutId
+                                }
                         }
+                        ?: planState.workoutDays
+                            .firstOrNull {
+                                it.day == day &&
+                                        it.weekNumber ==
+                                        planState.selectedWeek
+                            }
 
                 val addedExerciseNames =
                     workoutDay

@@ -147,6 +147,18 @@ interface WorkoutPlanDao {
         sessionId: Long
     )
 
+    @Query(
+        """
+    UPDATE planned_workouts
+    SET isCompleted = 0,
+        completedSessionId = NULL
+    WHERE id = :plannedWorkoutId
+    """
+    )
+    suspend fun markWorkoutIncomplete(
+        plannedWorkoutId: Long
+    )
+
 
     // -------------------------
     // PLANNED EXERCISES

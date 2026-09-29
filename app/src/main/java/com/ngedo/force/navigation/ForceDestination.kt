@@ -4,7 +4,18 @@ sealed class ForceDestination(val route: String) {
 
     object Home : ForceDestination("home")
 
-    object Workout : ForceDestination("workout")
+    object Workout : ForceDestination(
+        "workout?plannedWorkoutId={plannedWorkoutId}"
+    ) {
+
+        const val baseRoute = "workout"
+
+        fun createRoute(
+            plannedWorkoutId: Long
+        ): String {
+            return "workout?plannedWorkoutId=$plannedWorkoutId"
+        }
+    }
 
     object ExerciseLibrary : ForceDestination("exercise_library")
 

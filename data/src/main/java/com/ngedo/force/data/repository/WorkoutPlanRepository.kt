@@ -143,6 +143,15 @@ class WorkoutPlanRepository @Inject constructor(
             )
     }
 
+    suspend fun markWorkoutIncomplete(
+        plannedWorkoutId: Long
+    ) {
+        workoutPlanDao
+            .markWorkoutIncomplete(
+                plannedWorkoutId
+            )
+    }
+
 
     // -------------------------
     // PLANNED EXERCISES
